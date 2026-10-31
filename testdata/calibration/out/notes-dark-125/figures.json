@@ -1,0 +1,39 @@
+{
+ "scale": 1.25,
+ "size": [
+  1600,
+  5349
+ ],
+ "images": [
+  {
+   "kind": "dialog",
+   "src": "dialog.png",
+   "rect": [
+    342,
+    1228,
+    1258,
+    1670
+   ]
+  },
+  {
+   "kind": "diagram",
+   "src": "diagram-dark.svg",
+   "rect": [
+    342,
+    2457,
+    1258,
+    2940
+   ]
+  },
+  {
+   "kind": "photo",
+   "src": "photo.jpg",
+   "rect": [
+    342,
+    3601,
+    1258,
+    4135
+   ]
+  }
+ ]
+}

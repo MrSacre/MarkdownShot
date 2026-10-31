@@ -1,0 +1,89 @@
+{
+ "scale": 1.25,
+ "size": [
+  1600,
+  5655
+ ],
+ "images": [
+  {
+   "kind": "photo",
+   "src": "photo.jpg",
+   "rect": [
+    342,
+    230,
+    1258,
+    764
+   ]
+  },
+  {
+   "kind": "chart",
+   "src": "chart-light.png",
+   "rect": [
+    342,
+    991,
+    1258,
+    1426
+   ]
+  },
+  {
+   "kind": "dialog",
+   "src": "dialog.png",
+   "rect": [
+    342,
+    1486,
+    1258,
+    1929
+   ]
+  },
+  {
+   "kind": "diagram",
+   "src": "diagram-light.svg",
+   "rect": [
+    342,
+    2101,
+    1258,
+    2584
+   ]
+  },
+  {
+   "kind": "code-shot",
+   "src": "code-shot-light.png",
+   "rect": [
+    342,
+    3333,
+    788,
+    3468
+   ]
+  },
+  {
+   "kind": "photo",
+   "src": "photo.jpg",
+   "rect": [
+    812,
+    3333,
+    1258,
+    3592
+   ]
+  },
+  {
+   "kind": "code-shot",
+   "src": "code-shot-light.png",
+   "rect": [
+    518,
+    4071,
+    1082,
+    4242
+   ]
+  },
+  {
+   "kind": "dialog",
+   "src": "dialog.png",
+   "rect": [
+    342,
+    4939,
+    1258,
+    5381
+   ]
+  }
+ ]
+}

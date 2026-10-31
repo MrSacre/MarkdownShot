@@ -1,0 +1,49 @@
+{
+ "scale": 1.25,
+ "size": [
+  1600,
+  6328
+ ],
+ "images": [
+  {
+   "kind": "diagram",
+   "src": "diagram-dark.svg",
+   "rect": [
+    342,
+    908,
+    1258,
+    1391
+   ]
+  },
+  {
+   "kind": "code-shot",
+   "src": "code-shot-dark.png",
+   "rect": [
+    454,
+    3047,
+    1146,
+    3343
+   ]
+  },
+  {
+   "kind": "chart",
+   "src": "chart-dark.png",
+   "rect": [
+    342,
+    3653,
+    1258,
+    4088
+   ]
+  },
+  {
+   "kind": "levels",
+   "src": "levels.png",
+   "rect": [
+    342,
+    5390,
+    1258,
+    5878
+   ]
+  }
+ ]
+}

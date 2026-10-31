@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Texte à côté des images</title>
+<style>
+  body { margin:0; font-family: Inter, "DejaVu Sans", sans-serif; color:#1f2937; background:#fff; }
+  main { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 38px; margin: 0 0 20px; }
+  h2 { font-size: 28px; margin: 40px 0 12px; }
+  p { font-size: 18px; line-height: 1.7; margin: 0 0 18px; }
+  .row { display:flex; align-items:center; gap:24px; margin: 24px 0; }
+  .row img { width: 480px; border-radius: 6px; display:block; }
+  .side { font-size: 15px; color:#475569; width: 150px; }
+  .note { font-size: 14px; color:#b45309; width: 170px; align-self:flex-start; margin-top: 20px; }
+  .cols { display:flex; gap:32px; align-items:flex-start; }
+  .cols .left { width: 420px; flex: none; }
+  .cols .left img { width: 100%; display:block; border-radius: 6px; }
+  .cols .right { flex: 1; }
+</style></head>
+<body><main>
+  <h1>Texte à côté des images</h1>
+  <p>Lorem Ipsum est le faux texte standard de l'imprimerie depuis les années 1500, quand un imprimeur anonyme
+  assembla ensemble des morceaux de texte pour réaliser un livre spécimen de polices de texte.</p>
+  <div class="row">
+    <div class="side">Vue depuis le col, au lever du soleil</div>
+    <img src="mountains.jpg" alt="">
+    <div class="note">← le soleil se lève derrière le deuxième sommet</div>
+  </div>
+  <p>Il n'a pas fait que survivre cinq siècles, mais s'est aussi adapté à la bureautique informatique, sans que
+  son contenu n'en soit modifié. Il a été popularisé dans les années 1960 grâce à la vente de feuilles Letraset.</p>
+  <h2>Deux colonnes</h2>
+  <div class="cols">
+    <div class="left"><img src="chart.png" alt=""></div>
+    <div class="right">
+      <p>Cette colonne de droite est un vrai texte courant. Elle commence au même niveau que le graphique,
+      continue pendant toute sa hauteur et se prolonge bien au-delà, sur plusieurs lignes, comme dans une
+      mise en page de magazine. Elle ne doit surtout pas être avalée dans l'image du graphique, car c'est
+      un paragraphe à part entière que l'on veut retrouver dans la note. Encore quelques mots pour que le
+      texte descende nettement plus bas que le graphique, afin que le test soit significatif et
+      représentatif d'une vraie page web à deux colonnes.</p>
+    </div>
+  </div>
+  <p>Dernier paragraphe, après les deux colonnes, pour vérifier que le texte qui suit reste bien du texte.</p>
+</main></body></html>

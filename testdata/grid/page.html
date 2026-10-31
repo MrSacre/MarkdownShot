@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Grilles</title>
+<style>
+  body { margin:0; font-family: "Open Sans", "DejaVu Sans", sans-serif; color:#334155; background:#fff; }
+  .hero { background:#f8f7f5; padding: 10px 92px 40px; }
+  .hero h1 { font-size: 40px; margin: 0; color:#1e1b3a; }
+  main { max-width: 860px; margin: 0 auto; padding: 30px 24px; }
+  h2 { font-size: 22px; color:#1e1b3a; margin: 36px 0 10px; }
+  p { font-size: 15px; line-height: 1.6; text-align: justify; }
+  ul.grid { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); row-gap: 14px; font-size: 15px; }
+  ul.grid li::before { content: "→"; color: #14b8a6; font-weight: bold; margin-right: 10px; }
+  table.kv { border-collapse: collapse; font-size: 15px; }
+  table.kv td { padding: 6px 40px 6px 0; }
+</style></head>
+<body>
+<div class="hero"><h1>Télémétrie EDR</h1></div>
+<main>
+  <p>Ce chapitre présente les principales sources de télémétrie utilisées par les EDR pour alimenter leur logique de détection et de réponse.</p>
+  <h2>Fonctions surveillées</h2>
+  <p>Voici une liste non exhaustive de fonctions de l'API Windows couramment surveillées :</p>
+  <ul class="grid">
+    <li>CreateThread</li><li>CreateRemoteThread</li><li>GetThreadContext</li>
+    <li>SetThreadContext</li><li>OpenProcess</li><li>OpenThread</li>
+    <li>VirtualAlloc</li><li>VirtualAllocEx</li><li>WriteProcessMemory</li>
+    <li>VirtualQuery</li><li>VirtualFree</li>
+  </ul>
+  <h2>Sources de données</h2>
+  <table class="kv">
+    <tr><td>Source</td><td>Niveau</td><td>Exemple</td></tr>
+    <tr><td>Hooks</td><td>Utilisateur</td><td>ntdll.dll</td></tr>
+    <tr><td>Callbacks</td><td>Noyau</td><td>PsSetCreateProcessNotifyRoutine</td></tr>
+    <tr><td>ETW</td><td>Noyau</td><td>Microsoft-Windows-Threat-Intelligence</td></tr>
+  </table>
+  <h2>Schéma</h2>
+  <svg width="620" height="170" xmlns="http://www.w3.org/2000/svg" font-family="DejaVu Sans" font-size="15">
+    <rect x="10" y="20" width="170" height="60" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+    <text x="95" y="56" text-anchor="middle">Application</text>
+    <rect x="430" y="20" width="170" height="60" rx="8" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+    <text x="515" y="56" text-anchor="middle">Noyau</text>
+    <line x1="180" y1="50" x2="425" y2="50" stroke="#475569" stroke-width="3"/>
+    <polygon points="425,42 440,50 425,58" fill="#475569"/>
+    <text x="300" y="40" text-anchor="middle" font-size="13">appel système</text>
+    <rect x="220" y="110" width="170" height="44" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="305" y="138" text-anchor="middle">EDR</text>
+  </svg>
+  <p>Fin de la page : ce paragraphe doit rester du texte normal.</p>
+</main></body></html>

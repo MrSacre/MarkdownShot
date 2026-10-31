@@ -1,0 +1,131 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests:
+    name: Tests (engine, reference page)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Version script
+        run: python scripts/next_version.py --self-test
+      - name: Models and ONNX Runtime
+        run: python scripts/fetch_models.py --runtime linux
+      - name: Tests
+        run: cargo test --release -p markdownshot-core
+
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      HAS_CERT: ${{ secrets.SIGNING_PFX_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Version
+        id: version
+        shell: bash
+        run: python scripts/next_version.py --apply >> "$GITHUB_OUTPUT"
+      - name: Models and ONNX Runtime
+        run: python scripts/fetch_models.py --runtime windows
+      - name: Build
+        run: cargo build --release
+      - name: Smoke test (command line)
+        shell: pwsh
+        run: |
+          Copy-Item models\* target\release\
+          target\release\markdownshot.exe --version
+          $exe = "target\release\markdownshot.exe"
+          $p = Start-Process -FilePath $exe -ArgumentList 'convert','testdata\reference\snip_top.png','--stdout' -NoNewWindow -Wait -PassThru -RedirectStandardOutput cpu.txt -RedirectStandardError cpu.err
+          Get-Content cpu.txt | Select-Object -First 5
+          if ($p.ExitCode -ne 0) { echo "::error::conversion (CPU): exit code $($p.ExitCode) $((Get-Content cpu.err) -join ' | ')"; exit 1 }
+          $env:MARKDOWNSHOT_GPU = "1"
+          $p = Start-Process -FilePath $exe -ArgumentList 'convert','testdata\reference\full_100.png','--stdout' -NoNewWindow -Wait -PassThru -RedirectStandardOutput gpu.txt -RedirectStandardError gpu.err
+          $last = (Get-Content gpu.err | Select-Object -Last 1)
+          echo "::notice::GPU requested: exit code $($p.ExitCode), $last"
+          if ($p.ExitCode -ne 0) { echo "::error::$((Get-Content gpu.err | Select-Object -Last 12) -join ' | ')"; exit 1 }
+      - name: Sign the executable
+        if: env.HAS_CERT == 'true'
+        shell: pwsh
+        env:
+          SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: ./scripts/sign.ps1 target/release/markdownshot.exe
+      - name: Portable zip and installer files
+        run: python scripts/package.py --exe target/release/markdownshot.exe --out dist --stage dist/stage
+      - name: Installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          & $iscc /Q "/DAppVersion=${{ steps.version.outputs.version }}" "/DSourceDir=$PWD\dist\stage" "/DOutputDir=$PWD\dist" installer\markdownshot.iss
+          if ($LASTEXITCODE -ne 0) { throw "installer build failed" }
+      - name: Sign the installer
+        if: env.HAS_CERT == 'true'
+        shell: pwsh
+        env:
+          SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: ./scripts/sign.ps1 (Get-ChildItem dist\*-setup.exe).FullName
+      - name: Installer test (silent install, then uninstall)
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist\*-setup.exe).FullName
+          Start-Process $setup -ArgumentList "/VERYSILENT", "/CURRENTUSER", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\MarkdownShot\markdownshot.exe"
+          if (-not (Test-Path $exe)) { throw "markdownshot.exe missing after install" }
+          & $exe --version
+          Start-Process "$env:LOCALAPPDATA\Programs\MarkdownShot\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES" -Wait
+          Start-Sleep -Seconds 2
+          if (Test-Path $exe) { throw "markdownshot.exe still present after uninstall" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MarkdownShot-windows-x64
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
+
+  release:
+    name: Release
+    needs: [tests, windows]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: MarkdownShot-windows-x64
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.windows.outputs.version }}
+          name: v${{ needs.windows.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: |
+            dist/*.zip
+            dist/*-setup.exe
+

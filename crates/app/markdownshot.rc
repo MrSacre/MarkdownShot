@@ -1,0 +1,30 @@
+#include <winres.h>
+#pragma code_page(65001)
+
+1 ICON "@ASSETS@markdownshot.ico"
+1 RT_MANIFEST "@DIR@markdownshot.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @VERSION_BIN@
+PRODUCTVERSION @VERSION_BIN@
+FILEOS 0x40004
+FILETYPE 0x1
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040C04B0"
+    BEGIN
+      VALUE "CompanyName", "MarkdownShot"
+      VALUE "FileDescription", "MarkdownShot - screenshot to Markdown"
+      VALUE "FileVersion", "@VERSION@"
+      VALUE "InternalName", "markdownshot"
+      VALUE "OriginalFilename", "markdownshot.exe"
+      VALUE "ProductName", "MarkdownShot"
+      VALUE "ProductVersion", "@VERSION@"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x040C, 1200
+  END
+END

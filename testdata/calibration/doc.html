@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="la">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>Lorem API</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<h1>Lorem API : documentatio technica</h1>
+
+<div class="meta">Versio 2.4 · ultima mutatio XII kal. nov.</div>
+
+<p>Sagittis pariatur id adipiscing tincidunt laboris pellentesque nisi irure curabitur laboris. Deserunt do commodo nostrud ad tempor deserunt tellus excepteur nostrud est esse ex. Vide <code>lorem::init()</code> et proident qui ullamco sed officia id reprehenderit laboris labore egestas senectus.</p>
+
+<h2>Installatio</h2>
+
+<p>Duis non occaecat aliquip qui do proident culpa lorem id laboris tellus incididunt. Dolor sint excepteur ipsum consequat vestibulum enim amet officia quis aute sed enim.</p>
+
+<pre class="dark"><code>$ lorem --ipsum ./dolor/sit.toml --amet=0
+[ok] consectetur: 12 elementa lecta
+[ok] adipiscing: &lt;none&gt;
+$ elit -v | tail -n 1
+sed_do_eiusmod = { tempor: 1, incididunt: [0, 1] }</code></pre>
+
+<ul>
+  <li>Excepteur egestas vestibulum est minim pretium lacus voluptate quis.</li>
+  <li>Optio <code>--amet</code> mauris lorem eiusmod sed amet integer nulla tellus.</li>
+  <li>Et habitant pellentesque anim fames magna veniam exercitation porttitor mollit magna eiusmod enim.</li>
+</ul>
+
+<figure>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/diagram-dark.svg">
+    <img data-figure="diagram" src="assets/diagram-light.svg" alt="diagram">
+  </picture>
+  <figcaption>Figura prima : fluxus datorum inter partes systematis.</figcaption>
+</figure>
+
+<h3><img class="glyph" src="assets/icon-gear.svg" alt="">Configuratio</h3>
+
+<ol>
+  <li>Fugiat occaecat sed elit porttitor porttitor nulla id.<ul>
+  <li>Nostrud aute esse tempor aute.</li>
+  <li>Commodo id ullamco qui labore mauris.</li>
+</ul></li>
+  <li>Ea incididunt aute egestas veniam ipsum ipsum fames.</li>
+  <li>Habitant anim egestas vestibulum consectetur fugiat ex duis est.<ul>
+  <li>Clavis <code>dolor</code> exercitation porttitor morbi tellus velit.</li>
+  <li>Dolor magna irure nulla excepteur proident proident.</li>
+</ul></li>
+</ol>
+
+<pre class="light"><code>{
+  "lorem": "ipsum",
+  "dolor": [10, 20, 0x0F],
+  "sit": {
+    "amet": true,
+    "elit": ["sed", "do"],
+    "tempor": null
+  },
+  "Il1": "O0o"
+}</code></pre>
+
+<div class="callout"><span class="ico">i</span><p><strong>Nota bene :</strong> Adipiscing nisi nunc sed laboris aliqua et aliqua fugiat et sint sit mollit exercitation excepteur lacus netus. Ullamco dolore anim sagittis vivamus velit reprehenderit reprehenderit commodo ex officia ullamco.</p></div>
+
+<h2>Diagnostica</h2>
+
+<p>Reprehenderit consectetur ea adipiscing tristique fugiat deserunt deserunt adipiscing duis porttitor ullamco amet id senectus. Iussum <code class="b">u lorem!ipsum</code> elit ipsum sunt mollit aute habitant aliqua curabitur fames elit amet duis pellentesque fames.</p>
+
+<pre class="console"><code>0:000&gt; u lorem!ipsum+0x1a L6
+lorem!ipsum+0x1a:
+00007ff6`1a2b3c4a 488b4c2408      mov     rcx,qword ptr [rsp+8]
+00007ff6`1a2b3c4f 4c8bc1          mov     r8,rcx
+00007ff6`1a2b3c52 33d2            xor     edx,edx
+00007ff6`1a2b3c54 e8a7f1ffff      call    lorem!dolor (00007ff6`1a2b2e00)
+00007ff6`1a2b3c59 85c0            test    eax,eax
+00007ff6`1a2b3c5b 7410            je      lorem!ipsum+0x3d (00007ff6`1a2b3c6d)</code></pre>
+
+<ul class="arrows">
+  <li>Tempor senectus mollit fugiat nunc.</li>
+  <li>Aliqua est culpa ut consequat.</li>
+  <li>Ex pariatur laboris turpis tellus.</li>
+  <li>Aliquip nostrud egestas ad veniam.</li>
+</ul>
+
+<figure class="narrow">
+  <div class="shot"><img data-figure="code-shot" src="assets/code-shot-dark.png" alt="code-shot"><button class="fs" aria-label="full screen">⛶</button></div>
+  <figcaption>Exemplum in editore (imago).</figcaption>
+</figure>
+
+<p>Mollit magna amet nostrud nunc lacus aliquip ut morbi mauris ipsum. Lacus dolore integer laborum dolore labore labore consectetur mollit habitant integer habitant pellentesque.</p>
+
+<h4>Errores frequentes</h4>
+
+<blockquote><p>Aute proident magna elit labore irure mauris elit incididunt reprehenderit.</p></blockquote>
+
+<figure>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/chart-dark.png">
+    <img data-figure="chart" src="assets/chart-light.png" alt="chart">
+  </picture>
+  <figcaption>Figura secunda : mensura per mensem.</figcaption>
+</figure>
+
+<p>Ex minim cupidatat egestas vivamus occaecat enim fames cillum amet ex voluptate. Ex est ea exercitation sunt enim fermentum minim pretium deserunt curabitur nostrud aute sit. Functio <code>sit()</code> cillum amet nisi voluptate mauris consequat amet.</p>
+
+<pre class="dark"><code>pub struct Lorem&lt;'a&gt; {
+    ipsum: &amp;'a [u8],
+    dolor: Vec&lt;Option&lt;u32&gt;&gt;,
+}
+
+impl&lt;'a&gt; Lorem&lt;'a&gt; {
+    pub fn sit(&amp;mut self, amet: usize) -&gt; Result&lt;(), Il1Error&gt; {
+        let l1 = self.ipsum.get(amet..).ok_or(Il1Error::O0)?;
+        for (i, b) in l1.iter().enumerate() {
+            if *b &gt; 0x7F &amp;&amp; i % 2 == 0 {
+                self.dolor.push(Some(*b as u32));
+            } else {
+                self.dolor.push(None);
+            }
+        }
+        Ok(())
+    }
+}</code></pre>
+
+<p>Dolore commodo morbi turpis habitant sint anim habitant consequat elit anim reprehenderit tempor veniam.</p>
+
+<h3>Tabula associationum</h3>
+
+<p>Sint laborum consectetur cupidatat consectetur pariatur elit aliquip lorem occaecat.</p>
+
+<table class="bordered">
+  <tr><th>Exemplum</th><th>Associatio</th><th>Punctum ingressus</th><th>Observatio</th></tr>
+  <tr><td><code>lorem-ipsum</code></td><td><code>DelegataExecutio</code> sub schemate</td><td><code>Obiectum.Ingressus</code></td><td>Linea iussi, nulla URI</td></tr>
+  <tr><td><code>dolor-sit</code></td><td>Registratio dolore curabitur, <code>DelegataExecutio</code> sub ProgID</td><td><code>Amet.Applicatio</code></td><td>URI in linea iussi</td></tr>
+  <tr><td><code>amet-elit</code></td><td>non ut quis <code>Fasciculus</code></td><td><code>Elit.Sed</code></td><td>culpa deserunt duis sint tempor</td></tr>
+</table>
+
+<figure>
+  <img data-figure="levels" src="assets/levels.png" alt="levels">
+  <figcaption>Conspectus graduum accessus.</figcaption>
+</figure>
+
+<p>Fermentum irure non magna minim nunc curabitur reprehenderit aliquip culpa mauris.</p>
+
+<table class="bordered">
+  <tr><th>Gradus</th><th>Usus</th><th>Retentio</th></tr>
+  <tr><td>Defensio</td><td>consectetur adipiscing mauris ut ipsum</td><td><code>30 dies</code></td></tr>
+  <tr><td>Probatio</td><td>curabitur irure anim netus sint senectus</td><td><code>30 dies</code></td></tr>
+  <tr><td>Specialis</td><td>irure magna excepteur laborum</td><td><code>nulla</code></td></tr>
+</table>
+</main>
+</body>
+</html>

@@ -1,0 +1,7 @@
+/target
+/dist
+/models/*
+!/models/README.md
+*.log
+__pycache__/
+/ROADMAP.md

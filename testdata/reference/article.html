@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Prendre des notes à partir de captures d'écran</title>
+<style>
+  :root { --text:#1f2937; --muted:#6b7280; --accent:#2563eb; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Inter, "DejaVu Sans", sans-serif; color:var(--text); background:#fff; }
+  header.top { position: sticky; top:0; z-index:10; background:#0f172a; color:#e2e8f0; height:56px;
+               display:flex; align-items:center; gap:28px; padding:0 32px; font-size:15px; }
+  header.top b { color:#fff; font-size:18px; margin-right:auto; }
+  main { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { font-size: 42px; line-height: 1.15; margin: 0 0 12px; }
+  .meta { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
+  p, li { font-size: 18px; line-height: 1.7; }
+  a { color: var(--accent); text-decoration: underline; }
+  h2 { font-size: 30px; margin: 44px 0 12px; }
+  h3 { font-size: 23px; margin: 32px 0 8px; }
+  figure { margin: 28px 0; }
+  figure img { width: 100%; display: block; border-radius: 6px; }
+  figcaption { color: var(--muted); font-size: 15px; margin-top: 8px; text-align: center; }
+  pre { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px 20px; font-size: 15px;
+        line-height: 1.6; font-family: "DejaVu Sans Mono", monospace; }
+  blockquote { border-left: 4px solid #cbd5e1; margin: 24px 0; padding: 4px 20px; color: #374151; font-style: italic; }
+  .cookie { position: fixed; bottom: 16px; right: 16px; background: #111827; color: #f9fafb; padding: 12px 18px;
+            border-radius: 8px; font-size: 14px; }
+  footer { border-top: 1px solid #e5e7eb; color: var(--muted); font-size: 14px; padding: 24px; text-align:center; }
+</style>
+</head>
+<body>
+<header class="top"><b>Carnet Numérique</b><span>Articles</span><span>Outils</span><span>À propos</span></header>
+<main>
+  <h1>Prendre des notes à partir de captures d'écran</h1>
+  <div class="meta">Par Claire Martin · 21 octobre 2026 · 6 min de lecture</div>
+
+  <p>Chaque jour, nous lisons des dizaines d'articles sans jamais en garder une trace utile. La capture d'écran est
+  rapide, mais une image n'est <strong>ni cherchable ni modifiable</strong>. Cet article explique comment transformer
+  ces captures en véritables notes Markdown.</p>
+
+  <h2>Pourquoi le Markdown ?</h2>
+  <p>Le Markdown est un format texte très simple. Il reste lisible même sans logiciel, et des outils comme
+  <a href="#">Obsidian</a> l'affichent joliment. Surtout, vos notes vous appartiennent : ce sont de simples fichiers
+  sur votre disque, que vous pouvez <strong>sauvegarder</strong>, synchroniser et modifier librement.</p>
+
+  <figure>
+    <img src="mountains.jpg" alt="Paysage de montagnes">
+    <figcaption>Une illustration n'a pas besoin d'être lue : elle est simplement découpée et enregistrée.</figcaption>
+  </figure>
+
+  <h2>Les trois étapes du traitement</h2>
+  <p>Un bon outil doit enchaîner plusieurs opérations sans que vous ayez à y penser :</p>
+  <ul>
+    <li>repérer les blocs de la page : titres, paragraphes, images ;</li>
+    <li>lire le texte avec un moteur OCR rapide et local ;</li>
+    <li>reconstruire la mise en forme, y compris le <strong>gras</strong> et les listes.</li>
+  </ul>
+
+  <h3>Le cas des images</h3>
+  <p>Les images sont découpées automatiquement puis enregistrées dans le dossier des pièces jointes. Le texte
+  contenu dans un graphique, comme celui ci-dessous, ne doit pas être recopié dans la note.</p>
+
+  <figure>
+    <img src="chart.png" alt="Graphique des temps de traitement">
+    <figcaption>Comparaison des temps de traitement mesurés sur un ordinateur portable.</figcaption>
+  </figure>
+
+  <h3>Un exemple de configuration</h3>
+  <p>Voici à quoi ressemble un fichier de configuration minimal :</p>
+  <pre>[sortie]
+dossier_notes = "C:/Vault/Captures"
+dossier_images = "C:/Vault/Captures/images"
+raccourci = "Ctrl+Shift+S"</pre>
+
+  <blockquote>Une note que l'on ne retrouve pas est une note perdue.</blockquote>
+
+  <h2>Bonnes pratiques</h2>
+  <ol>
+    <li>Capturez uniquement la partie utile de la page.</li>
+    <li>Relisez la note juste après la capture.</li>
+    <li>Ajoutez quelques mots-clés pour la retrouver facilement.</li>
+  </ol>
+  <p>En suivant ces conseils, vous construirez en quelques semaines une <strong>base de connaissances</strong>
+  personnelle, simple à parcourir et entièrement hors ligne.</p>
+</main>
+<footer>© 2026 Carnet Numérique · Mentions légales · Contact</footer>
+<div class="cookie">Ce site utilise des cookies. <u>OK</u></div>
+</body>
+</html>

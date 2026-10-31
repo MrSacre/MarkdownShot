@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="380" viewBox="0 0 720 380" font-family="DejaVu Sans, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c9d1d9"/></marker></defs>
+<text x="4" y="16" font-size="14" fill="#8b949e">Figura 1 — fluxus datorum</text>
+<rect x="4" y="40" width="150" height="56" rx="6" fill="none" stroke="#c9d1d9" stroke-width="1.5"/>
+<text x="79.0" y="73.0" font-size="15" text-anchor="middle" fill="#c9d1d9">Ingestio</text>
+<rect x="285" y="40" width="150" height="56" rx="6" fill="none" stroke="#c9d1d9" stroke-width="1.5"/>
+<text x="360.0" y="73.0" font-size="15" text-anchor="middle" fill="#c9d1d9">Nucleus</text>
+<rect x="566" y="40" width="150" height="56" rx="6" fill="none" stroke="#c9d1d9" stroke-width="1.5"/>
+<text x="641.0" y="73.0" font-size="15" text-anchor="middle" fill="#c9d1d9">Archivum</text>
+<rect x="285" y="190" width="150" height="56" rx="6" fill="none" stroke="#c9d1d9" stroke-width="1.5"/>
+<text x="360.0" y="223.0" font-size="15" text-anchor="middle" fill="#c9d1d9">Cache lorem</text>
+<rect x="566" y="190" width="150" height="56" rx="6" fill="none" stroke="#c9d1d9" stroke-width="1.5"/>
+<text x="641.0" y="223.0" font-size="15" text-anchor="middle" fill="#c9d1d9">Index ipsum</text>
+<line x1="154" y1="68" x2="281" y2="68" stroke="#c9d1d9" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="217.5" y="60" font-size="13" text-anchor="middle" fill="#8b949e">dolor</text>
+<line x1="435" y1="68" x2="562" y2="68" stroke="#c9d1d9" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="498.5" y="60" font-size="13" text-anchor="middle" fill="#8b949e">sit amet</text>
+<line x1="360" y1="96" x2="360" y2="186" stroke="#c9d1d9" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#a)"/>
+<text x="370" y="145.0" font-size="13" fill="#8b949e">consectetur</text>
+<line x1="435" y1="218" x2="562" y2="218" stroke="#c9d1d9" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="498.5" y="210" font-size="13" text-anchor="middle" fill="#8b949e">adipiscing</text>
+<line x1="641" y1="186" x2="641" y2="100" stroke="#c9d1d9" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#a)"/>
+<path d="M 79 96 C 79 160, 200 218, 281 218" fill="none" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="96" y="176" font-size="13" fill="#58a6ff">reditus</text>
+<line x1="4" y1="340" x2="44" y2="340" stroke="#c9d1d9" stroke-width="1.5"/>
+<text x="52" y="345" font-size="13" fill="#8b949e">fluxus principalis</text>
+<line x1="220" y1="340" x2="260" y2="340" stroke="#c9d1d9" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="268" y="345" font-size="13" fill="#8b949e">imperium</text>
+<line x1="400" y1="340" x2="440" y2="340" stroke="#58a6ff" stroke-width="1.5"/>
+<text x="448" y="345" font-size="13" fill="#8b949e">reditus erroris</text>
+<text x="4" y="374" font-size="12" fill="#8b949e">Nota : magnitudines non ad scalam delineatae sunt.</text>
+</svg>
