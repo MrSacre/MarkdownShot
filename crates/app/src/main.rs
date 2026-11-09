@@ -12,6 +12,7 @@ mod overlay;
 mod platform;
 mod recorder;
 mod scrolling;
+mod splash;
 mod text;
 mod toast;
 mod update;

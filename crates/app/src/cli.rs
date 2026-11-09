@@ -137,7 +137,7 @@ fn engine(cfg: &Config) -> Result<Engine> {
     Engine::new(&dir, cfg.engine_options())
 }
 
-fn emit(eng: &mut Engine, cfg: &Config, img: &image::RgbImage, zones: &[Rect], o: &Opts, source: &str) -> Result<()> {
+fn emit(eng: &mut Engine, cfg: &Config, img: &image::RgbImage, zones: &[Rect], o: &Opts) -> Result<()> {
     let t = std::time::Instant::now();
     let doc = eng.process(img, zones)?;
     if std::env::var_os("MARKDOWNSHOT_DEBUG").is_some() {
@@ -169,7 +169,7 @@ fn emit(eng: &mut Engine, cfg: &Config, img: &image::RgbImage, zones: &[Rect], o
     if let Some(d) = &o.out {
         opts.notes_dir = d.clone();
     }
-    let w = output::write(&doc, &opts, Some(source), now_strings())?;
+    let w = output::write(&doc, &opts, now_strings())?;
     println!("{}  ({} images, {} ms)", w.note.display(), w.images.len(), t.elapsed().as_millis());
     Ok(())
 }
@@ -189,7 +189,7 @@ pub fn run(cmd: &str, args: &[String]) -> Result<()> {
             let mut eng = engine(&cfg)?;
             for p in &o.inputs {
                 let img = image::open(p).with_context(|| tf!("ouverture de {}", "opening {}", p.display()))?.to_rgb8();
-                emit(&mut eng, &cfg, &img, &o.zones, &o, &p.to_string_lossy())?;
+                emit(&mut eng, &cfg, &img, &o.zones, &o)?;
             }
         }
         "stitch" => {
@@ -223,7 +223,7 @@ pub fn run(cmd: &str, args: &[String]) -> Result<()> {
                 page.save(p)?;
             }
             let mut eng = engine(&cfg)?;
-            emit(&mut eng, &cfg, &page, &[], &o, &dir.to_string_lossy())?;
+            emit(&mut eng, &cfg, &page, &[], &o)?;
         }
         "record" => {
             let Some(z) = o.zones.first().copied() else {
@@ -235,7 +235,7 @@ pub fn run(cmd: &str, args: &[String]) -> Result<()> {
             }
             if !o.no_note {
                 let mut eng = engine(&cfg)?;
-                emit(&mut eng, &cfg, &page, &[], &o, "recording")?;
+                emit(&mut eng, &cfg, &page, &[], &o)?;
             }
         }
         _ => bail!("{}\n\n{help}", tf!("commande inconnue : {cmd}", "unknown command: {cmd}")),

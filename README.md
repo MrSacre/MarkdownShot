@@ -44,8 +44,8 @@ seconds. There is no account, no API key and no network access involved.
 
 **Notes**
 
-- YAML front matter (date, source window, tags), Markdown also copied to the clipboard, and a notification
-  that opens the note or the review window.
+- Plain Markdown with no front matter, also copied to the clipboard, and a notification that opens the
+  note or the review window.
 - Obsidian vaults are detected, and their settings are followed: attachments folder and link style
   (wikilinks or Markdown links). The folder can also be changed for a single note when saving it.
 - Images as optimized PNG, lossless WebP (about 2.5 times smaller) or JPEG, with optional downscaling of
@@ -56,7 +56,8 @@ seconds. There is no account, no API key and no network access involved.
 - The whole page, even a very long one, with zoom and a minimap.
 - Draw *image* areas with the left button and *ignore* areas (ads, banners) with the right button.
 - A **page end** line drops everything below it (comments, footer).
-- Live Markdown preview. The same window reviews the last capture (right-click its notification) or opens
+- Live Markdown preview that scrolls along with the page, so the text sits next to the part of the
+  capture it comes from. The same window reviews the last capture (right-click its notification) or opens
   an existing image.
 
 **Other**
@@ -136,8 +137,6 @@ notes_dir = 'C:\Users\you\Documents\Obsidian\Captures'
 images_dir = 'images'            # relative to notes_dir, or an absolute path
 wikilinks = true                 # false: standard Markdown links ![](images/...)
 filename = '{date} {time} - {title}'
-front_matter = true
-tags = ['capture']
 copy_markdown = true
 open_after = 'none'              # none | note | obsidian
 follow_vault = true              # inside an Obsidian vault, use its attachments folder and link style
