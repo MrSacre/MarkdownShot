@@ -307,6 +307,7 @@ impl App {
     }
 
     fn set_mode(&mut self, el: &ActiveEventLoop, m: Mode) {
+        log::info!("mode set to {m:?}");
         let mut c = self.cfg.clone();
         c.set_mode(m);
         self.apply_config(el, c);
@@ -456,7 +457,7 @@ impl App {
         if self.overlay.is_some() || self.recording.is_some() {
             return;
         }
-        log::info!("capture toolbar ({kind:?})");
+        log::info!("capture toolbar ({kind:?}, mode {}, config {})", self.cfg.capture.mode, Config::path().display());
         self.overlay_source = platform::foreground_title();
         let monitor = platform::cursor_pos().and_then(|(x, y)| xcap::Monitor::from_point(x, y).ok()).or_else(|| {
             xcap::Monitor::all().ok().and_then(|v| {
@@ -741,6 +742,9 @@ impl App {
         for a in actions {
             match a {
                 settings::Action::Apply(mut cfg) => {
+                    if cfg.capture.mode != self.cfg.capture.mode {
+                        log::info!("mode set to {} in the settings", cfg.capture.mode);
+                    }
                     cfg.updates.last_check = self.cfg.updates.last_check.clone();
                     cfg.updates.skip_version = self.cfg.updates.skip_version.clone();
                     self.apply_config(el, *cfg)
