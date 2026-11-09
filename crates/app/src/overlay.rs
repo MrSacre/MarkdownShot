@@ -9,7 +9,7 @@ use crate::config::Mode;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::{Key, NamedKey};
+use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{CursorIcon, Window, WindowAttributes, WindowId, WindowLevel};
 
 use crate::text::{self, Font};
@@ -51,6 +51,8 @@ pub struct Overlay {
     last_click: Option<Instant>,
     shown: bool,
     pub auto_scroll: bool,
+    mods: ModifiersState,
+    opened: Instant,
 }
 
 impl Overlay {
@@ -110,6 +112,8 @@ impl Overlay {
             last_click: None,
             shown: false,
             auto_scroll: false,
+            mods: ModifiersState::empty(),
+            opened: Instant::now(),
         };
         o.update_cursor_icon();
         Ok(o)
@@ -291,15 +295,20 @@ impl Overlay {
                 }
                 _ => {}
             },
-            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
-                return self.key(&event.logical_key);
+            WindowEvent::ModifiersChanged(m) => self.mods = m.state(),
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
+                return self.key(&event.logical_key, self.mods);
             }
             _ => {}
         }
         Outcome::Continue
     }
 
-    pub fn key(&mut self, key: &Key) -> Outcome {
+    pub fn key(&mut self, key: &Key, mods: ModifiersState) -> Outcome {
+        let held = mods.control_key() || mods.alt_key() || mods.super_key();
+        if matches!(key, Key::Character(_)) && (held || self.opened.elapsed() < std::time::Duration::from_millis(400)) {
+            return Outcome::Continue;
+        }
         match key {
             Key::Named(NamedKey::Escape) => return Outcome::Cancel,
             Key::Named(NamedKey::Enter) | Key::Named(NamedKey::Space) => return self.done(),

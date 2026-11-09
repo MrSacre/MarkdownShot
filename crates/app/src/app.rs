@@ -36,7 +36,7 @@ pub enum UserEvent {
     Worker(JobResult),
     Preview(u64, String, Vec<(usize, f32)>),
     UpdateChecked { result: Result<update::Release, String>, manual: bool },
-    UpdateDownloaded(Result<std::path::PathBuf, String>),
+    UpdateDownloaded(Result<(update::Method, std::path::PathBuf), String>),
 }
 
 struct Items {
@@ -81,6 +81,7 @@ pub struct App {
     rec_mode: Mode,
     next_refresh: Instant,
     toast: Option<Toast>,
+    toolbar_mods: winit::keyboard::ModifiersState,
     splash: Option<crate::splash::Splash>,
     settings: Option<SettingsWindow>,
     review: Option<(ReviewWindow, ReviewCtx)>,
@@ -118,6 +119,7 @@ impl App {
             recording: None,
             next_refresh: Instant::now(),
             toast: None,
+            toolbar_mods: winit::keyboard::ModifiersState::empty(),
             splash: None,
             settings: None,
             review: None,
@@ -390,7 +392,7 @@ impl App {
             return;
         }
         log::info!("new version {} (current {current})", rel.version);
-        let one_click = update::installed_with_setup() && rel.setup_url.is_some();
+        let one_click = update::method(&rel).is_some();
         let body = if one_click {
             tf!(
                 "Vous avez la {current}.\nClic : installer et redémarrer · clic droit : ignorer",
@@ -413,10 +415,10 @@ impl App {
 
     fn install_update(&mut self, el: &ActiveEventLoop) {
         let Some(rel) = self.update.clone() else { return };
-        if !update::installed_with_setup() || rel.setup_url.is_none() {
+        let Some(method) = update::method(&rel) else {
             platform::open(&rel.page);
             return;
-        }
+        };
         if self.update_busy {
             return;
         }
@@ -426,16 +428,16 @@ impl App {
         self.notify(el, Kind::Busy, &title, body, None, None);
         let proxy = self.proxy.clone();
         std::thread::spawn(move || {
-            let r = update::fetch_installer(&rel).map_err(|e| format!("{e:#}"));
+            let r = update::fetch(&rel, method).map(|p| (method, p)).map_err(|e| format!("{e:#}"));
             let _ = proxy.send_event(UserEvent::UpdateDownloaded(r));
         });
     }
 
-    fn on_update_downloaded(&mut self, el: &ActiveEventLoop, r: Result<std::path::PathBuf, String>) {
+    fn on_update_downloaded(&mut self, el: &ActiveEventLoop, r: Result<(update::Method, std::path::PathBuf), String>) {
         self.update_busy = false;
-        match r.and_then(|p| update::run_installer(&p).map_err(|e| format!("{e:#}"))) {
-            Ok(()) => {
-                log::info!("installer started, exiting for the update");
+        match r.and_then(|(m, p)| update::apply(m, &p).map(|_| m).map_err(|e| format!("{e:#}"))) {
+            Ok(m) => {
+                log::info!("update started ({m:?}), exiting");
                 el.exit();
             }
             Err(e) => {
@@ -484,6 +486,7 @@ impl App {
         self.scale = monitor.scale_factor().unwrap_or(1.0) as f64;
         let windows = visible_windows(origin, shot.width(), shot.height());
         let mode = self.cfg.mode();
+        self.toolbar_mods = winit::keyboard::ModifiersState::empty();
         match Overlay::new(el, shot, origin, windows, kind, mode) {
             Ok(mut o) => {
                 o.auto_scroll = self.cfg.capture.auto_scroll;
@@ -996,10 +999,13 @@ impl ApplicationHandler<UserEvent> for App {
         }
         if let Some(t) = self.toolbar.as_mut() {
             if t.win.id() == id {
+                if let WindowEvent::ModifiersChanged(m) = &ev {
+                    self.toolbar_mods = m.state();
+                }
                 if let WindowEvent::KeyboardInput { event, .. } = &ev {
-                    if event.state == ElementState::Pressed {
+                    if event.state == ElementState::Pressed && !event.repeat {
                         if let Some(o) = self.overlay.as_mut() {
-                            let out = o.key(&event.logical_key);
+                            let out = o.key(&event.logical_key, self.toolbar_mods);
                             o.window.focus_window();
                             self.on_outcome(el, out);
                         }
