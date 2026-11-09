@@ -71,6 +71,7 @@ pub struct Stats {
 
 pub struct Document {
     pub blocks: Vec<Block>,
+    pub block_y: Vec<f32>,
     pub images: Vec<RgbImage>,
     pub figures: Vec<Figure>,
     pub title: String,
@@ -80,6 +81,12 @@ pub struct Document {
 impl Document {
     pub fn markdown(&self, link: &dyn Fn(usize) -> String) -> String {
         markdown::render(&self.blocks, link)
+    }
+
+    pub fn markdown_anchors(&self, link: &dyn Fn(usize) -> String) -> (String, Vec<(usize, f32)>) {
+        let (md, starts) = markdown::render_lines(&self.blocks, link);
+        let anchors = starts.into_iter().zip(self.block_y.iter().copied()).collect();
+        (md, anchors)
     }
 }
 
@@ -310,7 +317,7 @@ impl Analysis {
             .filter(|l| !ignored.iter().any(|z| z.contains_point(l.ocr.rect.cx(), l.ocr.rect.cy())))
             .cloned()
             .collect();
-        let blocks = markdown::build_blocks(img, &lines, &figs, &self.panels, self.page_bg);
+        let (blocks, block_y) = markdown::build_blocks(img, &lines, &figs, &self.panels, self.page_bg);
         let images = figs
             .iter()
             .map(|f| {
@@ -321,7 +328,7 @@ impl Analysis {
         let title = title_of(&blocks);
         let mut stats = self.stats.clone();
         stats.build_ms = t.elapsed().as_millis();
-        Document { blocks, images, figures: figs, title, stats }
+        Document { blocks, block_y, images, figures: figs, title, stats }
     }
 }
 

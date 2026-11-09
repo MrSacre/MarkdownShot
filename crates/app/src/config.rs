@@ -24,8 +24,6 @@ pub struct OutputCfg {
     pub images_dir: PathBuf,
     pub wikilinks: bool,
     pub filename: String,
-    pub front_matter: bool,
-    pub tags: Vec<String>,
     pub copy_markdown: bool,
     pub open_after: String,
     pub follow_vault: bool,
@@ -110,8 +108,6 @@ impl Default for OutputCfg {
             images_dir: PathBuf::from("images"),
             wikilinks: true,
             filename: "{date} {time} - {title}".into(),
-            front_matter: true,
-            tags: vec!["capture".into()],
             copy_markdown: true,
             open_after: "none".into(),
             follow_vault: true,
@@ -251,8 +247,6 @@ impl Config {
             images_dir,
             wikilinks,
             filename: self.output.filename.clone(),
-            front_matter: self.output.front_matter,
-            tags: self.output.tags.clone(),
             images: markdownshot_core::output::ImageOptions {
                 format: markdownshot_core::output::ImageFormat::parse(&self.output.image_format),
                 quality: self.output.jpeg_quality,
@@ -296,9 +290,9 @@ impl Mode {
     }
 }
 
-pub fn now_strings() -> (String, String, String) {
+pub fn now_strings() -> (String, String) {
     let n = chrono::Local::now();
-    (n.format("%Y-%m-%d").to_string(), n.format("%Hh%M").to_string(), n.format("%Y-%m-%dT%H:%M:%S").to_string())
+    (n.format("%Y-%m-%d").to_string(), n.format("%Hh%M").to_string())
 }
 
 #[cfg(test)]

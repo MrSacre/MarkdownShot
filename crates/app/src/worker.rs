@@ -161,7 +161,7 @@ fn write(
         Some(d) => cfg.output_options_in(d),
         None => cfg.output_options(),
     };
-    let written = match output::write(&doc, &opts, source.as_deref(), now_strings()) {
+    let written = match output::write(&doc, &opts, now_strings()) {
         Ok(w) => w,
         Err(e) => return JobResult::Error(format!("{e:#}")),
     };

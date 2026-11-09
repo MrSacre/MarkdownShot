@@ -43,7 +43,6 @@ pub struct SettingsWindow {
 pub struct SettingsState {
     tab: Tab,
     draft: Config,
-    tags_text: String,
     recording: Option<HotkeySlot>,
     pub hotkey_errors: Vec<(HotkeySlot, String)>,
     saved_at: Option<Instant>,
@@ -77,7 +76,6 @@ impl SettingsWindow {
         win.clear = super::panel_rgb(&win.ctx);
         let st = SettingsState {
             tab: Tab::General,
-            tags_text: cfg.output.tags.join(", "),
             vaults: crate::obsidian::vaults(),
             draft: cfg.clone(),
             recording: None,
@@ -98,7 +96,6 @@ impl SettingsWindow {
 
     pub fn sync(&mut self, cfg: &Config) {
         self.st.draft = cfg.clone();
-        self.st.tags_text = cfg.output.tags.join(", ");
         self.win.next_repaint = Some(Instant::now());
     }
 
@@ -342,7 +339,7 @@ impl SettingsState {
 
         section(ui, t!("Nom des notes", "Note names"));
         ui.add(egui::TextEdit::singleline(&mut self.draft.output.filename).desired_width(380.0));
-        let (d, t, _) = crate::config::now_strings();
+        let (d, t) = crate::config::now_strings();
         let example = self
             .draft
             .output
@@ -357,14 +354,6 @@ impl SettingsState {
             !follow,
             egui::Checkbox::new(&mut self.draft.output.wikilinks, t!("Liens d'images au format Obsidian  ![[image.png]]", "Obsidian-style image links  ![[image.png]]")),
         );
-        ui.checkbox(&mut self.draft.output.front_matter, t!("En-tête YAML (date, source, tags)", "YAML front matter (date, source, tags)"));
-        ui.horizontal(|ui| {
-            ui.label("Tags");
-            if ui.add(egui::TextEdit::singleline(&mut self.tags_text).desired_width(300.0)).changed() {
-                self.draft.output.tags =
-                    self.tags_text.split(',').map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect();
-            }
-        });
         ui.checkbox(&mut self.draft.output.copy_markdown, t!("Copier aussi le Markdown dans le presse-papier", "Also copy the Markdown to the clipboard"));
 
         section(ui, t!("Après la capture", "After a capture"));
@@ -685,7 +674,6 @@ impl SettingsState {
                     self.draft = Config::default();
                     self.draft.output.notes_dir = keep;
                     self.draft.interface.language = lang;
-                    self.tags_text = self.draft.output.tags.join(", ");
                     self.confirm_reset = false;
                 }
                 if ui.button(t!("Annuler", "Cancel")).clicked() {

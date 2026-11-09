@@ -93,8 +93,6 @@ pub struct OutputOptions {
     pub images_dir: PathBuf,
     pub wikilinks: bool,
     pub filename: String,
-    pub front_matter: bool,
-    pub tags: Vec<String>,
     pub images: ImageOptions,
 }
 
@@ -105,8 +103,6 @@ impl Default for OutputOptions {
             images_dir: PathBuf::from("images"),
             wikilinks: true,
             filename: "{date} {time} - {title}".into(),
-            front_matter: true,
-            tags: vec!["capture".into()],
             images: ImageOptions::default(),
         }
     }
@@ -159,10 +155,9 @@ fn relative(from: &Path, to: &Path) -> PathBuf {
 pub fn write(
     doc: &Document,
     opts: &OutputOptions,
-    source: Option<&str>,
-    now: (String, String, String),
+    now: (String, String),
 ) -> Result<Written> {
-    let (date, time, iso) = now;
+    let (date, time) = now;
     std::fs::create_dir_all(&opts.notes_dir).with_context(|| format!("creating {}", opts.notes_dir.display()))?;
     let images_dir =
         if opts.images_dir.is_absolute() { opts.images_dir.clone() } else { opts.notes_dir.join(&opts.images_dir) };
@@ -214,20 +209,7 @@ pub fn write(
         }
     });
 
-    let mut content = String::new();
-    if opts.front_matter {
-        content.push_str("---\n");
-        content.push_str(&format!("created: {iso}\n"));
-        if let Some(s) = source.filter(|s| !s.trim().is_empty()) {
-            content.push_str(&format!("source: \"{}\"\n", s.replace('"', "'")));
-        }
-        if !opts.tags.is_empty() {
-            content.push_str(&format!("tags: [{}]\n", opts.tags.join(", ")));
-        }
-        content.push_str("---\n\n");
-    }
-    content.push_str(&markdown);
-    std::fs::write(&note, &content).with_context(|| format!("writing {}", note.display()))?;
+    std::fs::write(&note, &markdown).with_context(|| format!("writing {}", note.display()))?;
     let mut images: Vec<PathBuf> = Vec::new();
     for p in image_paths {
         if !images.contains(&p) {
@@ -245,7 +227,7 @@ mod tests {
 
     fn doc(images: Vec<image::RgbImage>) -> Document {
         let blocks = (0..images.len()).map(|index| Block::Image { index }).collect();
-        Document { blocks, images, figures: Vec::new(), title: "Essai".into(), stats: Stats::default() }
+        Document { blocks, block_y: Vec::new(), images, figures: Vec::new(), title: "Test".into(), stats: Stats::default() }
     }
 
     fn picture(seed: u8) -> image::RgbImage {
@@ -254,12 +236,12 @@ mod tests {
 
     #[test]
     fn formats_duplicates_and_resize() {
-        let dir = std::env::temp_dir().join(format!("markdownshot-essai-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("markdownshot-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let mut o = OutputOptions { notes_dir: dir.clone(), front_matter: false, ..Default::default() };
+        let mut o = OutputOptions { notes_dir: dir.clone(), ..Default::default() };
         o.images = ImageOptions { format: ImageFormat::WebP, quality: 90, max_width: 200, dedupe: true };
-        let now = ("2026-10-29".to_string(), "10-00".to_string(), "2026-10-29T10:00".to_string());
-        let w = write(&doc(vec![picture(3), picture(7), picture(3)]), &o, None, now.clone()).unwrap();
+        let now = ("2026-10-29".to_string(), "10-00".to_string());
+        let w = write(&doc(vec![picture(3), picture(7), picture(3)]), &o, now.clone()).unwrap();
         assert_eq!(w.images.len(), 2);
         assert_eq!(w.created.len(), 2);
         assert!(w.images.iter().all(|p| p.extension().unwrap() == "webp"));
@@ -269,7 +251,7 @@ mod tests {
         let bytes = std::fs::read(&w.images[0]).unwrap();
         let back = webp::Decoder::new(&bytes).decode().unwrap();
         assert_eq!((back.width(), back.height()), (200, 80));
-        let w2 = write(&doc(vec![picture(7)]), &o, None, now).unwrap();
+        let w2 = write(&doc(vec![picture(7)]), &o, now).unwrap();
         assert!(w2.created.is_empty());
         assert_eq!(w2.images, vec![w.images[1].clone()]);
         let _ = std::fs::remove_dir_all(&dir);

@@ -63,6 +63,11 @@ pub struct ReviewState {
     drag: Option<Drag>,
     show_preview: bool,
     preview: String,
+    anchors: Vec<(usize, f32)>,
+    line_starts: Vec<usize>,
+    md_layout: Option<(std::sync::Arc<egui::Galley>, f32, f32)>,
+    md_scroll: Option<f32>,
+    synced_view: Option<(f32, f32, f32)>,
     preview_gen: u64,
     preview_wanted: bool,
     scroll_to: Option<f32>,
@@ -112,6 +117,11 @@ impl ReviewWindow {
             drag: None,
             show_preview: true,
             preview: String::new(),
+            anchors: Vec::new(),
+            line_starts: vec![0],
+            md_layout: None,
+            md_scroll: None,
+            synced_view: None,
             preview_gen: 0,
             preview_wanted: true,
             scroll_to: None,
@@ -134,9 +144,18 @@ impl ReviewWindow {
         self.win.next_repaint = Some(Instant::now());
     }
 
-    pub fn set_preview(&mut self, gen_: u64, md: String) {
+    pub fn set_preview(&mut self, gen_: u64, md: String, anchors: Vec<(usize, f32)>) {
         if gen_ == self.st.preview_gen {
+            let mut starts = vec![0];
+            for (i, c) in md.chars().enumerate() {
+                if c == '\n' {
+                    starts.push(i + 1);
+                }
+            }
+            self.st.line_starts = starts;
+            self.st.anchors = anchors;
             self.st.preview = md;
+            self.st.synced_view = None;
             self.win.next_repaint = Some(Instant::now());
         }
     }
@@ -312,15 +331,21 @@ impl ReviewState {
                 ui.add_space(6.0);
                 ui.label(egui::RichText::new(t!("Aperçu du Markdown", "Markdown preview")).strong());
                 ui.add_space(4.0);
-                egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                let mut area = egui::ScrollArea::vertical().auto_shrink([false, false]).id_salt("markdown");
+                if let Some(y) = self.md_scroll.take() {
+                    area = area.vertical_scroll_offset(y);
+                }
+                let out = area.show(ui, |ui| {
+                    let top = ui.min_rect().top();
                     let mut text = self.preview.as_str();
-                    ui.add(
-                        egui::TextEdit::multiline(&mut text)
-                            .font(egui::TextStyle::Monospace)
-                            .desired_width(f32::INFINITY)
-                            .frame(egui::Frame::NONE),
-                    );
+                    let o = egui::TextEdit::multiline(&mut text)
+                        .font(egui::TextStyle::Monospace)
+                        .desired_width(f32::INFINITY)
+                        .frame(egui::Frame::NONE)
+                        .show(ui);
+                    (o.galley, o.galley_pos.y - top)
                 });
+                self.md_layout = Some((out.inner.0, out.inner.1, out.inner_rect.height()));
             });
         }
 
@@ -353,6 +378,7 @@ impl ReviewState {
                 self.interact(ui, &resp, &painter, page, zoom);
             });
             self.viewport = Some((out.state.offset.y, out.inner_rect.height(), ih as f32 * zoom));
+            self.follow_markdown(out.state.offset.y, out.inner_rect.height(), zoom, ui.ctx());
         });
 
         if self.preview_wanted && self.drag.is_none() {
@@ -361,6 +387,29 @@ impl ReviewState {
             actions.push(Action::Preview(self.preview_gen, self.zones_out()));
         }
         let _ = self.opened;
+    }
+
+    fn follow_markdown(&mut self, offset: f32, view_h: f32, zoom: f32, ctx: &egui::Context) {
+        if !self.show_preview || self.anchors.is_empty() {
+            return;
+        }
+        let Some((galley, rel, md_view_h)) = self.md_layout.clone() else { return };
+        let view = (offset, view_h, zoom);
+        if self.synced_view.is_some_and(|(o, h, z)| (o - offset).abs() < 0.5 && (h - view_h).abs() < 0.5 && (z - zoom).abs() < 1e-4) {
+            return;
+        }
+        self.synced_view = Some(view);
+        let ih = self.analysis.image.height() as f32;
+        let y_img = ((offset + view_h / 2.0 - 8.0) / zoom).clamp(0.0, ih);
+        let line = md_line_at(&self.anchors, self.line_starts.len().saturating_sub(1), ih, y_img);
+        let k = (line.floor() as usize).min(self.line_starts.len() - 1);
+        let next = (k + 1).min(self.line_starts.len() - 1);
+        let y_of = |l: usize| galley.pos_from_cursor(egui::text::CCursor::new(self.line_starts[l])).min.y;
+        let (ya, yb) = (y_of(k), y_of(next));
+        let y_md = ya + (yb - ya) * line.fract();
+        let target = (rel + y_md - md_view_h / 2.0).max(0.0);
+        self.md_scroll = Some(target);
+        ctx.request_repaint();
     }
 
     fn paint_tiles(&mut self, ctx: &egui::Context, painter: &egui::Painter, page: egui::Rect, zoom: f32, visible: egui::Rect) {
@@ -722,5 +771,42 @@ fn cursor_for(h: Handle) -> egui::CursorIcon {
         Handle::E | Handle::W => egui::CursorIcon::ResizeHorizontal,
         Handle::NE | Handle::SW => egui::CursorIcon::ResizeNeSw,
         Handle::NW | Handle::SE => egui::CursorIcon::ResizeNwSe,
+    }
+}
+
+fn md_line_at(anchors: &[(usize, f32)], last_line: usize, page_h: f32, y: f32) -> f32 {
+    let mut pts: Vec<(f32, f32)> = Vec::with_capacity(anchors.len() + 2);
+    let mut floor = 0.0f32;
+    for &(line, ay) in anchors {
+        floor = floor.max(ay);
+        pts.push((floor, line as f32));
+    }
+    pts.push((page_h.max(floor), last_line as f32));
+    if y <= pts[0].0 {
+        let (y0, l0) = pts[0];
+        return if y0 > 0.0 { l0 * (y / y0) } else { l0 };
+    }
+    for w in pts.windows(2) {
+        let ((ya, la), (yb, lb)) = (w[0], w[1]);
+        if y <= yb {
+            return if yb - ya > 0.5 { la + (lb - la) * (y - ya) / (yb - ya) } else { lb };
+        }
+    }
+    last_line as f32
+}
+
+#[cfg(test)]
+mod tests {
+    use super::md_line_at;
+
+    #[test]
+    fn markdown_follows_the_page() {
+        let a = [(0, 0.0), (2, 100.0), (6, 300.0)];
+        assert_eq!(md_line_at(&a, 10, 500.0, 0.0), 0.0);
+        assert!((md_line_at(&a, 10, 500.0, 50.0) - 1.0).abs() < 1e-4);
+        assert!((md_line_at(&a, 10, 500.0, 200.0) - 4.0).abs() < 1e-4);
+        assert!((md_line_at(&a, 10, 500.0, 400.0) - 8.0).abs() < 1e-4);
+        let columns = [(0, 0.0), (2, 300.0), (4, 100.0)];
+        assert!(md_line_at(&columns, 6, 400.0, 350.0) >= 4.0);
     }
 }

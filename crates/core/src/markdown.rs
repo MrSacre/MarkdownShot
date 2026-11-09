@@ -86,7 +86,7 @@ struct Ctx<'a> {
     panels: &'a [Panel],
 }
 
-pub fn build_blocks(img: &RgbImage, lines: &[Line], figures: &[Figure], panels: &[Panel], page_bg: Rgb) -> Vec<Block> {
+pub fn build_blocks(img: &RgbImage, lines: &[Line], figures: &[Figure], panels: &[Panel], page_bg: Rgb) -> (Vec<Block>, Vec<f32>) {
     let panel_of = |r: &Rect| {
         panels
             .iter()
@@ -371,34 +371,48 @@ pub fn build_blocks(img: &RgbImage, lines: &[Line], figures: &[Figure], panels: 
     }
 
     let mut blocks: Vec<Block> = Vec::new();
+    let mut ys: Vec<f32> = Vec::new();
     let mut cur: Option<Cur> = None;
     let mut list_x: Vec<f32> = Vec::new();
 
-    let flush = |cur: &mut Option<Cur>, blocks: &mut Vec<Block>, list_x: &mut Vec<f32>, ctx: &Ctx| {
+    let spread = |ys: &mut Vec<f32>, n: usize, y0: f32, y1: f32| {
+        for k in 0..n {
+            ys.push(y0 + (y1 - y0) * k as f32 / n as f32);
+        }
+    };
+    let flush = |cur: &mut Option<Cur>, blocks: &mut Vec<Block>, ys: &mut Vec<f32>, list_x: &mut Vec<f32>, ctx: &Ctx| {
         if let Some(c) = cur.take() {
-            blocks.extend(finish(c.kind, &c.lines, c.first_x, list_x, ctx));
+            let made = finish(c.kind, &c.lines, c.first_x, list_x, ctx);
+            let y0 = c.lines.iter().map(|l| l.ink.y0).fold(f32::MAX, f32::min);
+            let y1 = c.lines.iter().map(|l| l.ink.y1).fold(f32::MIN, f32::max);
+            spread(ys, made.len(), y0, y1);
+            blocks.extend(made);
         }
     };
 
     for it in items {
         let v = match it {
             Item::Grid(g) => {
-                flush(&mut cur, &mut blocks, &mut list_x, &ctx);
+                flush(&mut cur, &mut blocks, &mut ys, &mut list_x, &ctx);
                 list_x.clear();
-                blocks.extend(grids[g].blocks());
+                let made = grids[g].blocks();
+                spread(&mut ys, made.len(), grids[g].rect.y0, grids[g].rect.y1);
+                blocks.extend(made);
                 continue;
             }
             Item::Table(t) => {
-                flush(&mut cur, &mut blocks, &mut list_x, &ctx);
+                flush(&mut cur, &mut blocks, &mut ys, &mut list_x, &ctx);
                 list_x.clear();
+                ys.push(tables[t].rect.y0);
                 let members: Vec<&Line> =
                     lines.iter().enumerate().filter(|(k, _)| in_table[*k] == Some(t)).map(|(_, l)| l).collect();
                 blocks.push(Block::Table { rows: table_rows(img, &tables[t], &members) });
                 continue;
             }
             Item::Img(i) => {
-                flush(&mut cur, &mut blocks, &mut list_x, &ctx);
+                flush(&mut cur, &mut blocks, &mut ys, &mut list_x, &ctx);
                 list_x.clear();
+                ys.push(figures.get(i).map_or(0.0, |f| f.rect.y0));
                 blocks.push(Block::Image { index: i });
                 continue;
             }
@@ -463,7 +477,7 @@ pub fn build_blocks(img: &RgbImage, lines: &[Line], figures: &[Figure], panels: 
                 continue;
             }
         }
-        flush(&mut cur, &mut blocks, &mut list_x, &ctx);
+        flush(&mut cur, &mut blocks, &mut ys, &mut list_x, &ctx);
         if kind != Kind::Item {
             list_x.clear();
         }
@@ -474,12 +488,12 @@ pub fn build_blocks(img: &RgbImage, lines: &[Line], figures: &[Figure], panels: 
         };
         cur = Some(Cur { kind, panel: v.panel, last: v.ink, first_x, text_x, xh: v.xh, bg: v.bg, lines: vec![v] });
     }
-    flush(&mut cur, &mut blocks, &mut list_x, &ctx);
-    tab_labels(&mut blocks);
-    blocks
+    flush(&mut cur, &mut blocks, &mut ys, &mut list_x, &ctx);
+    tab_labels(&mut blocks, &mut ys);
+    (blocks, ys)
 }
 
-fn tab_labels(blocks: &mut Vec<Block>) {
+fn tab_labels(blocks: &mut Vec<Block>, ys: &mut Vec<f32>) {
     let mut i = 0;
     while i + 1 < blocks.len() {
         let label = match &blocks[i] {
@@ -489,6 +503,7 @@ fn tab_labels(blocks: &mut Vec<Block>) {
         if let (Some(tag), Block::Code { lang, .. }) = (label, &mut blocks[i + 1]) {
             *lang = Some(tag);
             blocks.remove(i);
+            ys.remove(i);
             continue;
         }
         i += 1;
@@ -1487,6 +1502,11 @@ fn looks_like_code(lines: &[VLine], img: Option<&RgbImage>) -> bool {
 }
 
 pub fn render(blocks: &[Block], image_link: &dyn Fn(usize) -> String) -> String {
+    render_lines(blocks, image_link).0
+}
+
+pub fn render_lines(blocks: &[Block], image_link: &dyn Fn(usize) -> String) -> (String, Vec<usize>) {
+    let mut starts: Vec<usize> = Vec::with_capacity(blocks.len());
     let mut out = String::new();
     let mut prev_item = false;
     let mut content_col: Vec<usize> = Vec::new();
@@ -1498,6 +1518,7 @@ pub fn render(blocks: &[Block], image_link: &dyn Fn(usize) -> String) -> String 
                 out.push('\n');
             }
         }
+        starts.push(out.matches('\n').count());
         match b {
             Block::Heading { level, text } => {
                 out.push_str(&"#".repeat(*level as usize));
@@ -1556,7 +1577,7 @@ pub fn render(blocks: &[Block], image_link: &dyn Fn(usize) -> String) -> String 
         prev_item = is_item;
     }
     out.push('\n');
-    out
+    (out, starts)
 }
 
 fn protect_line_start(t: &str) -> String {

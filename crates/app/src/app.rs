@@ -34,7 +34,7 @@ pub enum UserEvent {
     Menu(MenuEvent),
     Tray(TrayIconEvent),
     Worker(JobResult),
-    Preview(u64, String),
+    Preview(u64, String, Vec<(usize, f32)>),
     UpdateChecked { result: Result<update::Release, String>, manual: bool },
     UpdateDownloaded(Result<std::path::PathBuf, String>),
 }
@@ -81,6 +81,7 @@ pub struct App {
     rec_mode: Mode,
     next_refresh: Instant,
     toast: Option<Toast>,
+    splash: Option<crate::splash::Splash>,
     settings: Option<SettingsWindow>,
     review: Option<(ReviewWindow, ReviewCtx)>,
     last: Option<Arc<LastCapture>>,
@@ -117,6 +118,7 @@ impl App {
             recording: None,
             next_refresh: Instant::now(),
             toast: None,
+            splash: None,
             settings: None,
             review: None,
             last: None,
@@ -137,6 +139,10 @@ impl App {
             let s = m.size();
             self.area = (p.x, p.y, s.width, s.height);
             self.scale = m.scale_factor();
+        }
+        match crate::splash::Splash::new(el, self.area, self.scale, &self.font) {
+            Ok(s) => self.splash = Some(s),
+            Err(e) => log::warn!("splash screen: {e}"),
         }
         match GlobalHotKeyManager::new() {
             Ok(m) => {
@@ -301,6 +307,7 @@ impl App {
     }
 
     fn set_mode(&mut self, el: &ActiveEventLoop, m: Mode) {
+        log::info!("mode set to {m:?}");
         let mut c = self.cfg.clone();
         c.set_mode(m);
         self.apply_config(el, c);
@@ -450,7 +457,7 @@ impl App {
         if self.overlay.is_some() || self.recording.is_some() {
             return;
         }
-        log::info!("capture toolbar ({kind:?})");
+        log::info!("capture toolbar ({kind:?}, mode {}, config {})", self.cfg.capture.mode, Config::path().display());
         self.overlay_source = platform::foreground_title();
         let monitor = platform::cursor_pos().and_then(|(x, y)| xcap::Monitor::from_point(x, y).ok()).or_else(|| {
             xcap::Monitor::all().ok().and_then(|v| {
@@ -512,6 +519,11 @@ impl App {
             Outcome::Continue => {
                 if let (Some(o), Some(t)) = (self.overlay.as_ref(), self.toolbar.as_mut()) {
                     t.set(o.kind, o.mode, o.auto_scroll, o.hint());
+                }
+                if let Some(m) = self.overlay.as_ref().map(|o| o.mode) {
+                    if m != self.cfg.mode() {
+                        self.set_mode(el, m);
+                    }
                 }
                 if let Some(a) = self.overlay.as_ref().map(|o| o.auto_scroll) {
                     if a != self.cfg.capture.auto_scroll {
@@ -670,8 +682,8 @@ impl App {
                     let wiki = self.cfg.output.wikilinks;
                     std::thread::spawn(move || {
                         let doc = analysis.build(&zones, markdownshot_core::Mode::Manual);
-                        let md = doc.markdown(&|i| image_link(wiki, i));
-                        let _ = proxy.send_event(UserEvent::Preview(gen_, md));
+                        let (md, anchors) = doc.markdown_anchors(&|i| image_link(wiki, i));
+                        let _ = proxy.send_event(UserEvent::Preview(gen_, md, anchors));
                     });
                 }
                 review::Action::Copy { zones, close } => {
@@ -730,6 +742,9 @@ impl App {
         for a in actions {
             match a {
                 settings::Action::Apply(mut cfg) => {
+                    if cfg.capture.mode != self.cfg.capture.mode {
+                        log::info!("mode set to {} in the settings", cfg.capture.mode);
+                    }
                     cfg.updates.last_check = self.cfg.updates.last_check.clone();
                     cfg.updates.skip_version = self.cfg.updates.skip_version.clone();
                     self.apply_config(el, *cfg)
@@ -902,13 +917,16 @@ impl ApplicationHandler<UserEvent> for App {
             },
             UserEvent::UpdateChecked { result, manual } => self.on_update_checked(el, result, manual),
             UserEvent::UpdateDownloaded(r) => self.on_update_downloaded(el, r),
-            UserEvent::Preview(gen_, md) => {
+            UserEvent::Preview(gen_, md, anchors) => {
                 if let Some((w, _)) = self.review.as_mut() {
-                    w.set_preview(gen_, md);
+                    w.set_preview(gen_, md, anchors);
                 }
             }
             UserEvent::Worker(r) => match r {
                 JobResult::Ready => {
+                    if let Some(s) = self.splash.as_mut() {
+                        s.set_ready();
+                    }
                     if self.first_run {
                         self.first_run = false;
                         let body = tf!(
@@ -921,6 +939,7 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                 }
                 JobResult::LoadError(msg) => {
+                    self.splash = None;
                     self.notify(el, Kind::Error, t!("Modèles introuvables", "Models not found"), &msg, None, None);
                 }
                 JobResult::Analyzed { analysis, source, long, snipe } => {
@@ -962,6 +981,12 @@ impl ApplicationHandler<UserEvent> for App {
     }
 
     fn window_event(&mut self, el: &ActiveEventLoop, id: WindowId, ev: WindowEvent) {
+        if let Some(s) = self.splash.as_mut() {
+            if s.id() == id {
+                s.handle(&ev);
+                return;
+            }
+        }
         if let Some(o) = self.overlay.as_mut() {
             if o.id() == id {
                 let out = o.handle(&ev, &self.font);
@@ -1083,6 +1108,13 @@ impl ApplicationHandler<UserEvent> for App {
             } else {
                 at(t);
             }
+        }
+        if self.splash.as_ref().is_some_and(|s| s.done()) {
+            self.splash = None;
+        }
+        if let Some(s) = self.splash.as_mut() {
+            s.tick();
+            at(s.wake_at());
         }
         if self.toast.as_ref().is_some_and(|t| t.expired()) {
             self.toast = None;
