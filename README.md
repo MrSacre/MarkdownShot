@@ -77,8 +77,11 @@ MarkdownShot runs on Windows 10 and 11 (64-bit). Each [release](../../releases) 
 
 | File | Use |
 |---|---|
-| `MarkdownShot-x.y.z-windows-x64-setup.exe` | Installer (recommended): Start menu entry, uninstaller, one-click updates |
+| `MarkdownShot-x.y.z-windows-x64-setup.exe` | Installer (recommended): Start menu entry, uninstaller |
 | `MarkdownShot-x.y.z-windows-x64-portable.zip` | Portable version: unzip anywhere, nothing is installed |
+
+Both update themselves in one click from the update notification: the installed version runs the new
+installer silently, the portable version replaces its files in its own folder and keeps its settings.
 
 **Installer.** Run the setup file. It installs for the current user without administrator rights
 (`%LOCALAPPDATA%\Programs\MarkdownShot`) or for all users (`C:\Program Files\MarkdownShot`), and can start
