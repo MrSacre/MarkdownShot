@@ -232,6 +232,12 @@ scroll at 100% and 125%, a compressed video, side captions, grids, tables) and c
   Example, mkdocs-material, Godot, React Native, Flask, Python docs, FastAPI, cp-algorithms). The ground
   truth (pictures, formulas, code blocks, text) is read from the page DOM. `--compare before.json` shows
   the difference with a previous run.
+  The `-win` variants render the pages in a headful Chromium with LCD subpixel text and other fonts, close
+  to what a Windows screen shows. Symbols and inline code have their own columns.
+- `harness/blockbench.py`: the code blocks of the realbench captures, cropped with their context and
+  scored alone (`--build` once, then `--compare before.json`).
+- `harness/glyphnet`: `gen.py` renders monospace cells from font files and `train.py` trains the glyph
+  classifier embedded in the engine (`crates/core/assets/glyphs.onnx`).
 - `harness/scrollbench.py`: scroll recording on real pages in a browser.
 
 Debugging: `cargo run --release -p markdownshot-core --example dump -- capture.png` prints the lines,

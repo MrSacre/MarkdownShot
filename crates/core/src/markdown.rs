@@ -996,11 +996,6 @@ fn code_text(lines: &[VLine], img: Option<&RgbImage>, frame: Option<Rect>) -> St
         let mut p: Vec<f32> = lines.iter().flat_map(|l| l.pitch_samples.iter().cloned()).collect();
         median(&mut p).max(1.0)
     };
-    if std::env::var_os("MARKDOWNSHOT_GLYPHS").is_some() {
-        for l in lines {
-            eprintln!("  pitch probe: ink {:.1}..{:.1} chars {} first {:?} last {:?} text {:?}", l.ink.x0, l.ink.x1, l.chars.len(), l.chars.first(), l.chars.last(), l.text);
-        }
-    }
     let minx = lines.iter().map(|l| l.ink.x0).fold(f32::MAX, f32::min);
     let mut hs: Vec<f32> = lines.iter().map(|l| l.boxr.h()).collect();
     let lh = median(&mut hs);
@@ -1377,9 +1372,6 @@ fn repair_glyphs(
             }
         }
     }
-    if debug {
-        eprintln!("  cells pace {pace:?} bad {bad:?}");
-    }
     if let Some((b0, s)) = pace {
         for &r in &bad {
             let Some(i) = out[r].1 else { continue };
@@ -1501,10 +1493,6 @@ fn read_blank_row(img: &RgbImage, g: crate::glyphs::Grid, base: f32, lead: usize
             break;
         }
         tried.push((step, read.iter().flatten().map(|c| c.p).sum::<f32>() / all.max(1) as f32));
-        if std::env::var_os("MARKDOWNSHOT_GLYPHS").is_some() {
-            let t: String = read.iter().map(|c| c.as_ref().map_or(' ', |c| if c.p >= 0.9 { c.best } else { '?' })).collect();
-            eprintln!("    blank read at {at:.1}: \"{t}\"");
-        }
         if seen.is_empty() || weak * 10 > all || read.iter().flatten().any(|c| c.p < 0.35) {
             continue;
         }
@@ -1555,9 +1543,7 @@ fn fuse_cells(chars: &mut Vec<char>, read: &[Option<crate::cells::Cell>], ocr_ro
     if !ocr_row {
         return;
     }
-    let limit = |name: &str, d: f32| std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(d);
-    let (t_fill, t_swap, t_keep, t_drop) =
-        (limit("MDS_FILL", 0.95), limit("MDS_SWAP", 0.9), limit("MDS_KEEP", 0.05), limit("MDS_DROP", 0.9));
+    let (t_fill, t_swap, t_keep, t_drop) = (0.95, 0.9, 0.05, 0.9);
     let odd = chars.iter().filter(|c| !c.is_ascii()).count();
     let foreign = odd > 3 && odd * 7 > chars.len();
     let tree = chars.iter().any(|c| ('│'..='╿').contains(c));
