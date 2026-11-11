@@ -6,6 +6,7 @@ import json
 import os
 import random
 import re
+import string
 import subprocess
 import sys
 import threading
@@ -45,7 +46,33 @@ INCLUDE = {
     "python-docs": r"^(tutorial|howto|library|faq|reference)/.+\.html$",
     "cp-algorithms": r"^(?!index|navigation|preview|tags|contrib|code_of_conduct).+\.html$",
 }
-VARIANTS = {"light-100": ("light", 1.0), "dark-100": ("dark", 1.0), "light-125": ("light", 1.25), "dark-125": ("dark", 1.25)}
+VARIANTS = {
+    "light-100": ("light", 1.0, False),
+    "dark-100": ("dark", 1.0, False),
+    "light-125": ("light", 1.25, False),
+    "dark-125": ("dark", 1.25, False),
+    "light-100-win": ("light", 1.0, True),
+    "dark-100-win": ("dark", 1.0, True),
+    "light-125-win": ("light", 1.25, True),
+    "dark-125-win": ("dark", 1.25, True),
+}
+MONO = ["Inconsolata", "Inconsolata", "Cascadia Code", "JetBrains Mono", "Source Code Pro ExtraLight", "Roboto Mono",
+        "IBM Plex Mono", "Liberation Mono"]
+SANS = ["Open Sans", "Noto Sans", "Roboto", "Source Sans 3 ExtraLight", "Liberation Sans", "Inter"]
+LCD_CONF = """<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>
+  <match target="font">
+    <edit name="antialias" mode="assign"><bool>true</bool></edit>
+    <edit name="rgba" mode="assign"><const>rgb</const></edit>
+    <edit name="lcdfilter" mode="assign"><const>lcddefault</const></edit>
+    <edit name="hinting" mode="assign"><bool>true</bool></edit>
+    <edit name="hintstyle" mode="assign"><const>hintslight</const></edit>
+  </match>
+</fontconfig>
+"""
+SYMBOLS = set(string.punctuation)
 VIEWPORT = {"width": 1280, "height": 800}
 MAX_H = 12000
 
@@ -131,6 +158,15 @@ TRUTH = r"""
     if (r.height < 8) continue;
     codes.push({ text: visibleText(pre), rect: abs(r) });
   }
+  const inline = [];
+  for (const el of root.querySelectorAll('code, kbd, samp, tt')) {
+    if (el.closest('pre, nav, button, .headerlink, table.highlighttable') || el.parentElement.closest('code, kbd, samp, tt')) continue;
+    if (!vis(el)) continue;
+    const r = el.getBoundingClientRect();
+    const text = el.innerText.replace(/\s+/g, ' ').trim();
+    if (!text || r.height < 4) continue;
+    inline.push({ text, rect: abs(r) });
+  }
   const cut = [];
   if (ylim !== undefined && ylim !== null) {
     for (const el of root.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, dt, dd, tr, blockquote, figcaption, table, dl, section, div')) {
@@ -144,7 +180,7 @@ TRUTH = r"""
   clone.style.position = 'absolute'; clone.style.left = '-99999px'; clone.style.width = R.width + 'px';
   const text = clone.innerText;
   clone.remove();
-  return { root: abs(R), images, codes, text };
+  return { root: abs(R), images, codes, inline, text };
 }
 """
 
@@ -185,13 +221,38 @@ def capture(site: str, pages: list[str], variants: list[str]) -> list[Path]:
     port = serve(BENCH / "site" / site)
     cases = []
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        plain = None
+        lcd = None
         for vname in variants:
-            scheme, scale = VARIANTS[vname]
+            scheme, scale, win = VARIANTS[vname]
+            if win:
+                if lcd is None:
+                    conf = OUT / "lcd-fonts.conf"
+                    conf.parent.mkdir(parents=True, exist_ok=True)
+                    conf.write_text(LCD_CONF)
+                    lcd = p.chromium.launch(headless=False, args=["--enable-lcd-text"],
+                                            env=dict(os.environ, FONTCONFIG_FILE=str(conf)))
+                browser = lcd
+            else:
+                plain = plain or p.chromium.launch()
+                browser = plain
             ctx = browser.new_context(viewport=VIEWPORT, device_scale_factor=scale, color_scheme=scheme)
             ctx.route(re.compile(r"^https?://(?!127\.0\.0\.1)"), lambda r: r.abort())
             page = ctx.new_page()
             for rel in pages:
+                fonts = None
+                if win:
+                    rnd = random.Random(f"{site}/{rel}/{vname}")
+                    fonts = (rnd.choice(MONO), rnd.choice(SANS))
+                    css = (f"html, body {{ font-family: '{fonts[1]}', sans-serif !important; }}"
+                           f"code, kbd, samp, tt, pre, pre *, .ace_editor, .ace_editor * {{ font-family: '{fonts[0]}', monospace !important;"
+                           " font-variant-ligatures: none !important; }")
+                    page.close()
+                    page = ctx.new_page()
+                    page.add_init_script(
+                        "new MutationObserver((_, o) => { if (document.head) { const s = document.createElement('style');"
+                        f" s.textContent = {json.dumps(css)}; document.head.appendChild(s); o.disconnect(); }} }})"
+                        ".observe(document, { childList: true, subtree: true });")
                 name = re.sub(r"[^A-Za-z0-9]+", "_", rel.removesuffix(".html").removesuffix("/index"))[:60]
                 case = OUT / site / f"{name}-{vname}"
                 case.mkdir(parents=True, exist_ok=True)
@@ -227,6 +288,8 @@ def capture(site: str, pages: list[str], variants: list[str]) -> list[Path]:
                     "scale": scale,
                     "images": [dict(i, rect=rel_rect(i["rect"])) for i in t["images"] if inside(i["rect"])],
                     "codes": [dict(c, rect=rel_rect(c["rect"])) for c in t["codes"] if inside(c["rect"])],
+                    "inline": [dict(c, rect=rel_rect(c["rect"])) for c in t["inline"] if inside(c["rect"])],
+                    "fonts": fonts,
                     "text": t["text"],
                     "truncated": t["root"][3] > y1,
                 }
@@ -241,7 +304,9 @@ def capture(site: str, pages: list[str], variants: list[str]) -> list[Path]:
                 (case / "truth.json").write_text(json.dumps(truth, ensure_ascii=False, indent=1), encoding="utf-8")
                 cases.append(case)
             ctx.close()
-        browser.close()
+        for b in (plain, lcd):
+            if b:
+                b.close()
     return cases
 
 
@@ -253,6 +318,82 @@ def norm_code(s: str) -> str:
         lines.pop()
     common = min((len(l) - len(l.lstrip(" ")) for l in lines if l.strip()), default=0)
     return "\n".join(l[common:] for l in lines)
+
+
+def char_ops(a: str, b: str):
+    n, m = len(a), len(b)
+    if n * m > 6_000_000:
+        return [("del", c, "") for c in a] + [("ins", "", c) for c in b]
+    d = [list(range(m + 1))]
+    for i in range(1, n + 1):
+        prev, cur, ca = d[-1], [i], a[i - 1]
+        for j in range(1, m + 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != b[j - 1])))
+        d.append(cur)
+    ops, i, j = [], n, m
+    while i > 0 or j > 0:
+        if i > 0 and j > 0 and d[i][j] == d[i - 1][j - 1] + (a[i - 1] != b[j - 1]):
+            if a[i - 1] != b[j - 1]:
+                ops.append(("sub", a[i - 1], b[j - 1]))
+            i, j = i - 1, j - 1
+        elif i > 0 and d[i][j] == d[i - 1][j] + 1:
+            ops.append(("del", a[i - 1], ""))
+            i -= 1
+        else:
+            ops.append(("ins", "", b[j - 1]))
+            j -= 1
+    return ops
+
+
+def diff_ops(exp: str, got: str):
+    from difflib import SequenceMatcher
+    le, lg = exp.split("\n"), got.split("\n")
+    ops = []
+    for tag, i1, i2, j1, j2 in SequenceMatcher(None, le, lg, autojunk=False).get_opcodes():
+        if tag != "equal":
+            ops += char_ops("\n".join(le[i1:i2]), "\n".join(lg[j1:j2]))
+    return ops
+
+
+def symbol_errors(ops) -> tuple[int, list[str]]:
+    hits = [f"{e or '∅'}→{g or '∅'}" for _, e, g in ops if e in SYMBOLS or g in SYMBOLS]
+    return len(hits), hits
+
+
+def inline_spans(md: str) -> list[str]:
+    body = re.sub(r"^(`{3,}).*?^\1(?!`)", " ", md, flags=re.S | re.M)
+    out = []
+    for m in re.finditer(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", body):
+        out.append(re.sub(r"\s+", " ", m.group(2)).strip().replace("\\|", "|"))
+    return [s for s in out if s]
+
+
+def score_inline(exp: list[str], got: list[str]) -> dict:
+    from collections import Counter
+    ce, cg = Counter(exp), Counter(got)
+    same = ce & cg
+    exact = sum(same.values())
+    rest_e = list((ce - same).elements())
+    rest_g = list((cg - same).elements())
+    errs = chars = near = 0
+    conf = []
+    for e in rest_e:
+        best, bj = 0.0, -1
+        for j, g in enumerate(rest_g):
+            if abs(len(g) - len(e)) > max(2, len(e) // 2):
+                continue
+            r = ev.ratio(e, g)
+            if r > best:
+                best, bj = r, j
+        if bj >= 0 and best >= 0.6:
+            g = rest_g.pop(bj)
+            ops = char_ops(e, g)
+            near += 1
+            errs += len(ops)
+            chars += len(e)
+            conf += [f"{a or '∅'}→{b or '∅'}" for _, a, b in ops]
+    return {"inline": len(exp), "inline_exact": exact, "inline_near": near, "inline_missed": len(exp) - exact - near,
+            "inline_extra": len(rest_g), "inline_errs": errs, "inline_chars": chars, "inline_conf": conf}
 
 
 def visible_images(shot: Path, images: list[dict]) -> list[dict]:
@@ -298,7 +439,7 @@ def run_case(case: Path, exe: Path, rescore: bool = False) -> dict:
             return {"case": case.name, "error": p.stderr[-400:]}
         md = p.stdout
         (case / f"got{tag}.md").write_text(md, encoding="utf-8")
-        m = re.search(r"\((\d+) ms : OCR (\d+) ms", p.stderr)
+        m = re.search(r"\((\d+) ms: OCR (\d+) ms", p.stderr)
         if m:
             (case / f"ms{tag}.txt").write_text(f"{m.group(1)} {m.group(2)}", encoding="utf-8")
     t = json.loads((case / "truth.json").read_text(encoding="utf-8"))
@@ -320,6 +461,16 @@ def run_case(case: Path, exe: Path, rescore: bool = False) -> dict:
     exact = sum(1 for k, j, _ in cpairs if j >= 0 and ce[k] == cg[j])
     errs = sum(ev.lev(ce[k], cg[j]) if j >= 0 else len(ce[k]) for k, j, _ in cpairs)
     chars = sum(len(c) for c in ce)
+    sym_chars = sym_errs = 0
+    sym_conf = []
+    for k, j, _ in cpairs:
+        if j < 0:
+            continue
+        sym_chars += sum(1 for c in ce[k] if c in SYMBOLS)
+        n, hits = symbol_errors(diff_ops(ce[k], cg[j]))
+        sym_errs += n
+        sym_conf += hits
+    inl = score_inline([c["text"] for c in t.get("inline", [])], inline_spans(md))
     we = ev.words(t["text"])
     wg = ev.words(re.sub(r"^(`{3,}).*?^\1(?!`)", " ", md, flags=re.S | re.M))
     from collections import Counter
@@ -343,13 +494,18 @@ def run_case(case: Path, exe: Path, rescore: bool = False) -> dict:
         "code_extra": len(cextra),
         "code_chars": chars,
         "code_errs": errs,
+        "sym_chars": sym_chars,
+        "sym_errs": sym_errs,
+        "sym_conf": sym_conf,
+        **inl,
         "f1": f1,
     }
 
 
 def summarize(rows: list[dict]) -> dict:
     s = {k: sum(r.get(k, 0) for r in rows) for k in
-         ["img", "img_exact", "img_ok", "img_missed", "img_extra", "code", "code_exact", "code_missed", "code_extra", "code_chars", "code_errs"]}
+         ["img", "img_exact", "img_ok", "img_missed", "img_extra", "code", "code_exact", "code_missed", "code_extra", "code_chars", "code_errs",
+          "sym_chars", "sym_errs", "inline", "inline_exact", "inline_near", "inline_missed", "inline_extra", "inline_errs", "inline_chars"]}
     s["pages"] = len(rows)
     s["ms"] = sum(r.get("ms", 0) for r in rows)
     s["f1"] = sum(r["f1"] for r in rows) / max(1, len(rows))
@@ -363,6 +519,8 @@ def line(name: str, s: dict, base: dict | None = None) -> str:
         name, str(s["pages"]),
         f"{s['img']}", pct(s["img_exact"], s["img"]), pct(s["img_ok"], s["img"]), str(s["img_missed"]), str(s["img_extra"]),
         f"{s['code']}", pct(s["code_exact"], s["code"]), str(s["code_missed"]), f"{100 * s['code_errs'] / max(1, s['code_chars']):.2f} %",
+        f"{100 * s['sym_errs'] / max(1, s['sym_chars']):.2f} %",
+        f"{s['inline']}", pct(s["inline_exact"], s["inline"]), str(s["inline_missed"]), str(s["inline_extra"]),
         f"{s['f1']:.3f}",
         f"{s['ms'] / max(1, s['pages']) / 1000:.2f} s",
     ]
@@ -376,9 +534,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sites", default=",".join(SITES))
     ap.add_argument("--pages", type=int, default=12, help="pages sampled per site")
-    ap.add_argument("--variants", default="light-100,dark-125")
+    ap.add_argument("--variants", default="light-100,dark-125,light-125-win,dark-100-win")
+    ap.add_argument("--by-variant", action="store_true", help="one more table with a line per variant")
     ap.add_argument("--no-capture", action="store_true", help="reuse existing captures")
     ap.add_argument("--rescore", action="store_true", help="also reuse engine outputs (scoring only)")
+    ap.add_argument("--capture-only", action="store_true")
+    ap.add_argument("--stride", type=int, default=1, help="with --no-capture, keep one page out of N")
     ap.add_argument("--exe", type=Path, default=EXE)
     ap.add_argument("--save")
     ap.add_argument("--compare")
@@ -389,9 +550,16 @@ def main():
     per_site = {}
     for site in a.sites.split(","):
         if a.no_capture:
-            cases = sorted(c for c in (OUT / site).iterdir() if (c / "truth.json").is_file() and c.name.rsplit("-", 2)[-2] + "-" + c.name.rsplit("-", 1)[-1] in variants)
+            cases = sorted(c for c in (OUT / site).iterdir() if (c / "truth.json").is_file()
+                           and json.loads((c / "truth.json").read_text(encoding="utf-8")).get("variant") in variants)
+            if a.stride > 1:
+                names = sorted({c.name.rsplit("-" + json.loads((c / "truth.json").read_text(encoding="utf-8"))["variant"], 1)[0] for c in cases})
+                keep = set(names[::a.stride])
+                cases = [c for c in cases if any(c.name.startswith(n + "-") and c.name[len(n) + 1:] in variants for n in keep)]
         else:
             cases = capture(site, pages_of(site, a.pages), variants)
+            if a.capture_only:
+                continue
         with ThreadPoolExecutor(a.j) as pool:
             rows = list(pool.map(lambda c: run_case(c, a.exe, a.rescore), cases))
         errs = [r for r in rows if "error" in r]
@@ -401,13 +569,20 @@ def main():
         per_site[site] = rows
         all_rows += rows
     base = json.load(open(a.compare)) if a.compare else None
-    print("| site | pages | images | exact frame | correct | missed | extra | code blocks | identical | missed | code CER | text F1 | time / page |")
-    print("|---" * 13 + "|")
+    print("| site | pages | images | exact frame | correct | missed | extra | code blocks | identical | missed | code CER | symbol errors "
+          "| inline code | exact | missed | extra | text F1 | time / page |")
+    print("|---" * 18 + "|")
     for site, rows in per_site.items():
         b = summarize([r for r in base["rows"] if r["case"].startswith(site + "/")]) if base else None
         print(line(site, summarize(rows), b))
     b = summarize([r for r in base["rows"] if any(r["case"].startswith(s + "/") for s in per_site)]) if base else None
     print(line("**total**", summarize(all_rows), b))
+    if a.by_variant:
+        print()
+        for v in variants:
+            rows = [r for r in all_rows if r["case"].endswith("-" + v)]
+            b = summarize([r for r in base["rows"] if r["case"].endswith("-" + v)]) if base else None
+            print(line(v, summarize(rows), b))
     if a.save:
         json.dump({"rows": all_rows}, open(a.save, "w"), indent=1)
 
