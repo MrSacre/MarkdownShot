@@ -5,6 +5,8 @@ use crate::ocr::TextLine;
 
 pub type Rgb = [u8; 3];
 
+const CHIP: f32 = 5.5;
+
 pub fn color_dist(a: Rgb, b: Rgb) -> f32 {
     let dr = a[0] as f32 - b[0] as f32;
     let dg = a[1] as f32 - b[1] as f32;
@@ -244,10 +246,40 @@ pub fn analyze_line(img: &RgbImage, line: &TextLine) -> LineStyle {
     let (ya, yb) = (first_row as u32, (last_row as u32 + 1).min(m.h));
     let mut pads: Vec<(f32, f32)> = Vec::new();
     if yb > ya + 2 {
-        let full = |x: u32| {
-            let n = (ya..yb).filter(|&y| color_dist(img.get_pixel(m.x0 + x, py0 + y).0, m.bg) > 18.0).count();
-            n as f32 >= (yb - ya) as f32 * 0.95
-        };
+        let state: Vec<Option<bool>> = (0..m.w)
+            .map(|x| {
+                let (mut strong, mut soft, mut clean) = (0u32, 0u32, 0u32);
+                for y in ya..yb {
+                    let d = color_dist(img.get_pixel(m.x0 + x, py0 + y).0, m.bg);
+                    if d > 18.0 {
+                        strong += 1;
+                    }
+                    if d < 40.0 {
+                        if d > CHIP {
+                            soft += 1;
+                        } else {
+                            clean += 1;
+                        }
+                    }
+                }
+                if strong as f32 >= (yb - ya) as f32 * 0.95 {
+                    Some(true)
+                } else if soft + clean < 3 {
+                    None
+                } else {
+                    Some(soft * 5 >= (soft + clean) * 4)
+                }
+            })
+            .collect();
+        let mut filled = state.clone();
+        for x in 0..m.w as usize {
+            if filled[x].is_none() {
+                let left = (0..x).rev().find_map(|k| state[k]);
+                let right = (x + 1..m.w as usize).find_map(|k| state[k]);
+                filled[x] = Some(left == Some(true) && right == Some(true));
+            }
+        }
+        let full = |x: u32| filled[x as usize] == Some(true);
         let mut x = 0u32;
         while x < m.w {
             if !full(x) {

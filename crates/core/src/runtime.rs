@@ -107,6 +107,17 @@ pub fn load_session(path: &Path, threads: usize) -> Result<Session> {
         .with_context(|| format!("loading model {}", path.display()))
 }
 
+pub fn load_memory(bytes: &[u8], threads: usize) -> Result<Session> {
+    let env = environment()?;
+    let mut b = Session::builder(env)
+        .map_err(|e| anyhow!("{e}"))?
+        .with_optimization_level(GraphOptimizationLevel::Level3)
+        .map_err(|e| anyhow!("{e}"))?
+        .with_intra_threads(threads)
+        .map_err(|e| anyhow!("{e}"))?;
+    b.commit_from_memory(bytes).map_err(|e| anyhow!("{e}"))
+}
+
 pub fn default_threads() -> usize {
     std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 8)
 }

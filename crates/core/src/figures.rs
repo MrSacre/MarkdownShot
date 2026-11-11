@@ -391,6 +391,35 @@ pub fn line_art(img: &RgbImage, r: &Rect, lines: &[TextLine], page_bg: Rgb, fram
     line_strokes(img, r, lines, page_bg, frames).0
 }
 
+fn scrollbar_rows(mask: &[bool], w: usize, h: usize) -> Option<(usize, usize)> {
+    if w < 120 || h < 40 {
+        return None;
+    }
+    let bar = |y: usize| -> bool {
+        let row = &mask[y * w..(y + 1) * w];
+        let (mut best, mut run, mut total) = (0usize, 0usize, 0usize);
+        for &m in row {
+            if m {
+                run += 1;
+                total += 1;
+                best = best.max(run);
+            } else {
+                run = 0;
+            }
+        }
+        best * 5 >= w && total <= best + 40
+    };
+    let from = h.saturating_sub(34);
+    let last = (from..h).rev().find(|&y| bar(y))?;
+    let mut first = last;
+    while first > from && bar(first - 1) {
+        first -= 1;
+    }
+    let thick = last + 1 - first;
+    let clear_above = first >= 3 && (first - 3..first).all(|y| mask[y * w..(y + 1) * w].iter().filter(|&&m| m).count() <= 40);
+    ((3..=18).contains(&thick) && clear_above).then_some((first.saturating_sub(2), (last + 3).min(h)))
+}
+
 fn line_strokes(img: &RgbImage, r: &Rect, lines: &[TextLine], page_bg: Rgb, frames: &[Rect]) -> (f32, Option<Rect>) {
     let (iw, ih) = img.dimensions();
     let (x0, y0, w, h) = r.to_px(iw, ih);
@@ -449,6 +478,11 @@ fn line_strokes(img: &RgbImage, r: &Rect, lines: &[TextLine], page_bg: Rgb, fram
             for x in fx0..fx1 {
                 mask[y * w + x] = false;
             }
+        }
+    }
+    if let Some((sy0, sy1)) = scrollbar_rows(&mask, w, h) {
+        for y in sy0..sy1 {
+            mask[y * w..(y + 1) * w].fill(false);
         }
     }
     let min_run = 20usize;
