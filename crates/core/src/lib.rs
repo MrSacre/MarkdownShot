@@ -1,3 +1,4 @@
+pub mod cells;
 pub mod engine;
 pub mod figures;
 pub mod formulas;

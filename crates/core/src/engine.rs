@@ -121,6 +121,9 @@ impl Engine {
         } else {
             None
         };
+        if let Err(e) = crate::cells::load() {
+            log::warn!("glyph model skipped: {e:#}");
+        }
         Ok(Self { ocr, layout, opts })
     }
 

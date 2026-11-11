@@ -257,26 +257,28 @@ fn caret(img: &RgbImage, bg: Rgb, i: &Ink, pitch: f32) -> bool {
 
 pub fn refine_grid(img: &RgbImage, g: Grid, rows: &[(f32, f32, Rgb)], cols: usize) -> Grid {
     let (w, h) = img.dimensions();
-    let mut col_ink = vec![0u32; w as usize];
+    let mut col_ink = vec![0f32; w as usize];
     for &(y0, y1, bg) in rows {
         let (ya, yb) = (y0.max(0.0) as u32, (y1.max(0.0) as u32).min(h));
         for x in 0..w {
-            col_ink[x as usize] += (ya..yb).filter(|&y| color_dist(img.get_pixel(x, y).0, bg) > INK).count() as u32;
+            col_ink[x as usize] += (ya..yb).map(|y| color_dist(img.get_pixel(x, y).0, bg).min(120.0)).sum::<f32>();
         }
     }
-    let cost = |x0: f32, pitch: f32| -> u32 {
-        (0..=cols)
-            .map(|k| {
-                let x = (x0 + k as f32 * pitch).round();
-                if x < 0.0 || x >= w as f32 { 0 } else { col_ink[x as usize] }
-            })
-            .sum()
+    let at = |x: f32| -> f32 {
+        if x < 0.0 || x >= (w - 1) as f32 {
+            return 0.0;
+        }
+        let i = x as usize;
+        let f = x - i as f32;
+        col_ink[i] * (1.0 - f) + col_ink[i + 1] * f
     };
-    let mut best = (cost(g.x0, g.pitch), g);
-    for ps in -15i32..=15 {
-        let pitch = g.pitch * (1.0 + ps as f32 * 0.002);
-        for step in -5i32..=5 {
-            let x0 = g.x0 + step as f32 * pitch / 10.0;
+    let cost = |x0: f32, pitch: f32| -> f32 { (0..=cols).map(|k| at(x0 + k as f32 * pitch - 0.5)).sum() };
+    let span = if cols >= 12 { 60 } else { 15 };
+    let mut best = (cost(g.x0, g.pitch) * 0.97, g);
+    for ps in -span..=span {
+        let pitch = g.pitch * (1.0 + ps as f32 * 0.001);
+        for step in -10i32..=10 {
+            let x0 = g.x0 + step as f32 * pitch / 20.0;
             let c = cost(x0, pitch);
             if c < best.0 {
                 best = (c, Grid { x0, pitch });

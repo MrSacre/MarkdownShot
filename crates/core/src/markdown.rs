@@ -979,11 +979,28 @@ fn code_text(lines: &[VLine], img: Option<&RgbImage>, frame: Option<Rect>) -> St
             })
             .map(|l| l.ink.w() / (l.chars.len() as f32 - 0.3))
             .collect();
-        if !w.is_empty() { median(&mut w) } else { d }
+        let mut ends: Vec<f32> = lines
+            .iter()
+            .filter(|l| l.chars.len() >= 10)
+            .map(|l| (l.chars[l.chars.len() - 1].1 - l.chars[0].1) / (l.chars.len() as f32 - 1.0))
+            .filter(|p| (p / d - 1.0).abs() < 0.2)
+            .collect();
+        if !w.is_empty() {
+            median(&mut w)
+        } else if !ends.is_empty() {
+            median(&mut ends)
+        } else {
+            d
+        }
     } else {
         let mut p: Vec<f32> = lines.iter().flat_map(|l| l.pitch_samples.iter().cloned()).collect();
         median(&mut p).max(1.0)
     };
+    if std::env::var_os("MARKDOWNSHOT_GLYPHS").is_some() {
+        for l in lines {
+            eprintln!("  pitch probe: ink {:.1}..{:.1} chars {} first {:?} last {:?} text {:?}", l.ink.x0, l.ink.x1, l.chars.len(), l.chars.first(), l.chars.last(), l.text);
+        }
+    }
     let minx = lines.iter().map(|l| l.ink.x0).fold(f32::MAX, f32::min);
     let mut hs: Vec<f32> = lines.iter().map(|l| l.boxr.h()).collect();
     let lh = median(&mut hs);
@@ -1025,12 +1042,14 @@ fn code_text(lines: &[VLine], img: Option<&RgbImage>, frame: Option<Rect>) -> St
         if edge_bottom {
             out.push((String::new(), None, below.0, below.1));
         }
-        repair_glyphs(img, lines, &mut out, minx, pitch, lh);
+        let net_rows = repair_glyphs(img, lines, &mut out, minx, pitch, frame);
         let keep = |t: &str| !t.trim().is_empty() && t.chars().all(|c| c == '-' || c == '.' || c == '`' || c == ' ');
-        if edge_bottom && !keep(&out[out.len() - 1].0) {
+        let inside = |r: &(String, Option<usize>, f32, f32)| frame.is_some_and(|f| r.2 >= f.y0 && r.3 <= f.y1);
+        let last = out.len() - 1;
+        if edge_bottom && !(keep(&out[last].0) || (net_rows.contains(&last) && inside(&out[last]))) {
             out.pop();
         }
-        if edge_top && !keep(&out[0].0) {
+        if edge_top && !(keep(&out[0].0) || (net_rows.contains(&0) && inside(&out[0]))) {
             out.remove(0);
         }
     }
@@ -1053,7 +1072,14 @@ fn code_text(lines: &[VLine], img: Option<&RgbImage>, frame: Option<Rect>) -> St
     fix_code(&strip_line_numbers(&text.join("\n")))
 }
 
-fn repair_glyphs(img: &RgbImage, lines: &[VLine], out: &mut [(String, Option<usize>, f32, f32)], minx: f32, pitch: f32, _lh: f32) {
+fn repair_glyphs(
+    img: &RgbImage,
+    lines: &[VLine],
+    out: &mut [(String, Option<usize>, f32, f32)],
+    minx: f32,
+    pitch: f32,
+    frame: Option<Rect>,
+) -> Vec<usize> {
     use crate::glyphs::{self, Grid, Row};
     let debug = std::env::var_os("MARKDOWNSHOT_DEBUG").is_some();
     let width = out.iter().map(|r| r.0.chars().count()).max().unwrap_or(0);
@@ -1099,12 +1125,34 @@ fn repair_glyphs(img: &RgbImage, lines: &[VLine], out: &mut [(String, Option<usi
         }
     }
     if rel.is_empty() {
-        return;
+        return Vec::new();
     }
     let mut rt: Vec<f32> = rel.iter().map(|v| v.0).collect();
     let mut rb: Vec<f32> = rel.iter().map(|v| v.1).collect();
     let (dt, db) = (median(&mut rt), median(&mut rb));
     let mut bg = lines[0].bg;
+    let cells_on = std::env::var_os("MARKDOWNSHOT_NO_CELLS").is_none();
+    let lead = frame.map_or(0, |f| (((g.x0 - f.x0 - 2.0) / g.pitch).floor().max(0.0) as usize).min(12));
+    let mut net_rows: Vec<usize> = Vec::new();
+    let mut heads: Vec<(usize, Vec<char>)> = Vec::new();
+    let lattice: Vec<Option<f32>> = {
+        let known: Vec<(usize, f32)> = metrics.iter().enumerate().filter_map(|(r, m)| m.map(|m| (r, m.1))).collect();
+        let mut steps: Vec<f32> =
+            known.windows(2).filter(|w| w[1].0 > w[0].0).map(|w| (w[1].1 - w[0].1) / (w[1].0 - w[0].0) as f32).collect();
+        let step = if steps.is_empty() { None } else { Some(median(&mut steps)) };
+        (0..out.len())
+            .map(|r| {
+                let before = known.iter().rev().find(|k| k.0 < r);
+                let after = known.iter().find(|k| k.0 > r);
+                match (before, after) {
+                    (Some(a), Some(b)) => Some(a.1 + (b.1 - a.1) * (r - a.0) as f32 / (b.0 - a.0) as f32),
+                    (Some(a), None) => step.map(|s| a.1 + s * (r - a.0) as f32),
+                    (None, Some(b)) => step.map(|s| b.1 - s * (b.0 - r) as f32),
+                    _ => None,
+                }
+            })
+            .collect()
+    };
     let is_box = |c: char| ('─'..='╿').contains(&c);
     let mut drawn: Vec<(usize, usize)> = Vec::new();
     for (r, row) in out.iter_mut().enumerate() {
@@ -1167,6 +1215,19 @@ fn repair_glyphs(img: &RgbImage, lines: &[VLine], out: &mut [(String, Option<usi
                     _ => {}
                 }
             }
+        } else if let Some(net) = lattice[r].filter(|_| cells_on).and_then(|b| read_blank_row(img, g, b, lead, width)) {
+            if debug {
+                eprintln!("  cells blank row: \"{}\"", net.iter().collect::<String>());
+            }
+            let cut = lead.min(net.len());
+            let first = net.iter().position(|c| *c != ' ').unwrap_or(cut);
+            if first < cut {
+                let mut head = net[first..cut].to_vec();
+                head.resize(lead - first, ' ');
+                heads.push((r, head));
+            }
+            chars = net[cut..].to_vec();
+            net_rows.push(r);
         } else {
             let mut found = Vec::new();
             let mut unknown = false;
@@ -1198,6 +1259,55 @@ fn repair_glyphs(img: &RgbImage, lines: &[VLine], out: &mut [(String, Option<usi
                     }
                 }
             }
+        }
+        if let Some(i) = row.1.filter(|_| cells_on) {
+            let cols = (((lines[i].ink.x1 - g.x0) / g.pitch).ceil().max(0.0) as usize).max(chars.len()).min(400);
+            let centers: Vec<f32> = (0..cols).map(|k| g.x0 + (k as f32 + 0.5) * g.pitch).collect();
+            let fit = |v: &[Option<crate::cells::Cell>]| -> (f32, f32) {
+                let (mut n, mut same, mut conf) = (0f32, 0f32, 0f32);
+                for (k, c) in v.iter().enumerate() {
+                    let o = chars.get(k).copied().unwrap_or(' ');
+                    if o == ' ' || !o.is_ascii() {
+                        continue;
+                    }
+                    n += 1.0;
+                    if let Some(c) = c {
+                        conf += c.p;
+                        if c.best == o {
+                            same += 1.0;
+                        }
+                    }
+                }
+                if n == 0.0 { (0.0, 0.0) } else { (same / n, conf / n) }
+            };
+            let mut read = crate::cells::read(img, bg, &centers, base, g.pitch);
+            let mut score = fit(&read);
+            if score.0 < 0.8 || score.1 < 0.93 {
+                for step in [-1i32, 1, -2, 2, -3, 3] {
+                    let alt = crate::cells::read(img, bg, &centers, base + step as f32 * 0.15 * g.pitch, g.pitch);
+                    let m = fit(&alt);
+                    if m.0 + m.1 * 0.2 > score.0 + score.1 * 0.2 + 0.01 {
+                        score = m;
+                        read = alt;
+                    }
+                }
+            }
+            if score.0 < 0.6 {
+                let net: Vec<char> = read.iter().map(|c| c.as_ref().map_or(' ', |c| c.best)).collect();
+                let sure = read.iter().flatten().all(|c| c.p >= 0.6) && score.1 >= 0.9;
+                let a: Vec<char> = chars.iter().copied().filter(|c| *c != ' ').collect();
+                let b: Vec<char> = net.iter().copied().filter(|c| *c != ' ').collect();
+                let alike = if a.len() >= 4 { lcs(&a, &b) * 100 >= a.len().max(b.len()) * 85 } else { a.len().abs_diff(b.len()) <= 1 && !b.is_empty() };
+                let sure = sure && (a.len() >= 4 || read.iter().flatten().all(|c| c.p >= 0.9));
+                if sure && alike {
+                    if debug {
+                        eprintln!("  cells row: \"{}\" -> \"{}\"", chars.iter().collect::<String>(), net.iter().collect::<String>());
+                    }
+                    chars = net;
+                }
+                read.clear();
+            }
+            fuse_cells(&mut chars, &read, row.1.is_some(), debug);
         }
         let mut k = 0;
         while k < chars.len() {
@@ -1243,6 +1353,118 @@ fn repair_glyphs(img: &RgbImage, lines: &[VLine], out: &mut [(String, Option<usi
             if r.0.contains('│') {
                 r.0 = r.0.replace('│', "|");
             }
+        }
+    }
+    let shift = heads.iter().map(|h| h.1.len()).max().unwrap_or(0);
+    if shift > 0 {
+        for (r, row) in out.iter_mut().enumerate() {
+            let head: String = heads.iter().find(|h| h.0 == r).map(|h| h.1.iter().collect()).unwrap_or_default();
+            if !row.0.is_empty() || !head.is_empty() {
+                row.0 = format!("{}{}{}", " ".repeat(shift - head.chars().count()), head, row.0).trim_end().to_string();
+            }
+        }
+    }
+    net_rows
+}
+
+fn read_blank_row(img: &RgbImage, g: crate::glyphs::Grid, base: f32, lead: usize, width: usize) -> Option<Vec<char>> {
+    let centers: Vec<f32> = (0..lead + width).map(|k| g.x0 + (k as f32 - lead as f32 + 0.5) * g.pitch).collect();
+    let bg = {
+        let (xa, xb) = (centers[0].max(0.0) as u32, (centers[centers.len() - 1].max(0.0) as u32).min(img.width()));
+        let (ya, yb) = ((base - g.pitch * 1.2).max(0.0) as u32, ((base + g.pitch * 0.3).max(0.0) as u32).min(img.height()));
+        let mut votes: Vec<(Rgb, u32)> = Vec::new();
+        for y in (ya..yb).step_by(2) {
+            for x in (xa..xb).step_by(2) {
+                let c = img.get_pixel(x, y).0;
+                if let Some(i) = votes.iter().position(|v| v.0 == c) {
+                    votes[i].1 += 1;
+                } else if votes.len() < 64 {
+                    votes.push((c, 1));
+                }
+            }
+        }
+        votes.iter().max_by_key(|v| v.1)?.0
+    };
+    let mut best: Option<(f32, Vec<char>)> = None;
+    for step in [0i32, -1, 1] {
+        let read = crate::cells::read(img, bg, &centers, base + step as f32 * 0.15 * g.pitch, g.pitch);
+        let seen: Vec<&crate::cells::Cell> = read.iter().flatten().filter(|c| c.best != ' ').collect();
+        if seen.is_empty() || read.iter().flatten().any(|c| c.p < 0.9) {
+            continue;
+        }
+        let mean = seen.iter().map(|c| c.p).sum::<f32>() / seen.len() as f32;
+        if best.as_ref().is_none_or(|b| mean > b.0) {
+            let mut net: Vec<char> = read.iter().map(|c| c.as_ref().map_or(' ', |c| c.best)).collect();
+            while net.last() == Some(&' ') {
+                net.pop();
+            }
+            best = Some((mean, net));
+        }
+    }
+    let (mean, net) = best?;
+    let ink: Vec<char> = net.iter().copied().filter(|c| *c != ' ').collect();
+    let varied = ink.iter().any(|c| c.is_alphanumeric()) || ink.iter().any(|c| *c != ink[0]) || ink.len() <= 2;
+    (mean >= 0.97 && varied).then_some(net)
+}
+
+fn lcs(a: &[char], b: &[char]) -> usize {
+    let mut prev = vec![0usize; b.len() + 1];
+    for x in a {
+        let mut cur = vec![0usize; b.len() + 1];
+        for (j, y) in b.iter().enumerate() {
+            cur[j + 1] = if x == y { prev[j] + 1 } else { cur[j].max(prev[j + 1]) };
+        }
+        prev = cur;
+    }
+    prev[b.len()]
+}
+
+fn fuse_cells(chars: &mut Vec<char>, read: &[Option<crate::cells::Cell>], ocr_row: bool, debug: bool) {
+    if debug {
+        let seen: String = read.iter().map(|c| c.as_ref().map_or(' ', |c| if c.p >= 0.5 { c.best } else { '?' })).collect();
+        let conf: String = read
+            .iter()
+            .map(|c| c.as_ref().map_or(' ', |c| char::from_digit((c.p * 10.0).min(9.0) as u32, 10).unwrap_or('9')))
+            .collect();
+        eprintln!("  cells ocr  \"{}\"", chars.iter().collect::<String>());
+        eprintln!("  cells net  \"{}\"", seen.trim_end());
+        eprintln!("  cells conf \"{}\"", conf.trim_end());
+    }
+    if !ocr_row {
+        return;
+    }
+    let limit = |name: &str, d: f32| std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(d);
+    let (t_fill, t_swap, t_keep, t_drop) =
+        (limit("MDS_FILL", 0.8), limit("MDS_SWAP", 0.9), limit("MDS_KEEP", 0.05), limit("MDS_DROP", 0.95));
+    let odd = chars.iter().filter(|c| !c.is_ascii()).count();
+    let foreign = odd > 3 && odd * 7 > chars.len();
+    let tree = chars.iter().any(|c| ('│'..='╿').contains(c));
+    for (k, cell) in read.iter().enumerate() {
+        let o = chars.get(k).copied().unwrap_or(' ');
+        let Some(c) = cell else { continue };
+        if !o.is_ascii() {
+            let letter = o.is_alphabetic() && (o as u32) < 0x250;
+            let drawn = ('─'..='╿').contains(&o) && (tree || c.best != '-');
+            if !letter && !drawn && !foreign && c.best != ' ' && c.p >= 0.95 {
+                chars[k] = c.best;
+            }
+            continue;
+        }
+        if c.best == o {
+            continue;
+        }
+        let take = if o == ' ' {
+            c.p >= t_fill
+        } else if c.best == ' ' {
+            c.p >= t_drop
+        } else {
+            c.p >= t_swap && c.prob(o) < t_keep
+        };
+        if take {
+            while chars.len() <= k {
+                chars.push(' ');
+            }
+            chars[k] = c.best;
         }
     }
 }
