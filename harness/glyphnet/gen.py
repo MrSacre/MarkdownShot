@@ -138,7 +138,7 @@ def render(rnd: random.Random, font_path: str) -> tuple[np.ndarray, np.ndarray]:
     centers = x_start + (np.arange(n, dtype=np.float32) + 0.5) * adv + rnd.uniform(-0.14, 0.14) * adv
     centers = centers + np.array([rnd.uniform(-0.05, 0.05) * adv for _ in range(n)], dtype=np.float32)
     bg_est = bg + np.array([rnd.uniform(-1.5, 1.5) for _ in range(3)], dtype=np.float32)
-    x, m = patches(img, bg_est.round(), centers, by + rnd.uniform(-0.16, 0.16) * adv, pitch)
+    x, m = patches(img, bg_est.round(), centers, by + rnd.uniform(-0.24, 0.24) * adv, pitch)
     y = np.array([INDEX[c] for c in text], dtype=np.int64)
     keep = m >= 12.0
     return (x[keep] * 255).round().astype(np.uint8), y[keep]

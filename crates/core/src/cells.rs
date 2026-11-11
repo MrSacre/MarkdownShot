@@ -18,10 +18,10 @@ pub const CLASSES: usize = 95;
 
 static NET: Mutex<Option<Session>> = Mutex::new(None);
 
-pub fn load() -> Result<()> {
+pub fn load(threads: usize) -> Result<()> {
     let mut net = NET.lock().map_err(|_| anyhow!("glyph model lock"))?;
     if net.is_none() {
-        *net = Some(crate::runtime::load_memory(MODEL)?);
+        *net = Some(crate::runtime::load_memory(MODEL, threads)?);
     }
     Ok(())
 }

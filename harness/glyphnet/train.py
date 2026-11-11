@@ -12,7 +12,7 @@ CHARS = [chr(c) for c in range(32, 127)]
 
 
 class Net(nn.Module):
-    def __init__(self, n=95, c=(24, 48, 96)):
+    def __init__(self, n=95, c=(16, 32, 64)):
         super().__init__()
         self.c1 = nn.Conv2d(1, c[0], 3, padding=1)
         self.c2 = nn.Conv2d(c[0], c[0], 3, padding=1)
@@ -20,8 +20,8 @@ class Net(nn.Module):
         self.c4 = nn.Conv2d(c[1], c[1], 3, padding=1)
         self.c5 = nn.Conv2d(c[1], c[2], 3, padding=1)
         self.b1, self.b2, self.b3 = nn.BatchNorm2d(c[0]), nn.BatchNorm2d(c[1]), nn.BatchNorm2d(c[2])
-        self.fc1 = nn.Linear(c[2] * 4 * 3, 192)
-        self.fc2 = nn.Linear(192, n)
+        self.fc1 = nn.Linear(c[2] * 4 * 3, 160)
+        self.fc2 = nn.Linear(160, n)
         self.drop = nn.Dropout(0.15)
 
     def forward(self, x):
